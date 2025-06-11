@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>Loading...</title>
 <style>
   html, body {
@@ -12,8 +12,12 @@
     margin: 0;
     background-color: black;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   }
 
   .loader {
@@ -29,9 +33,23 @@
     0%   { transform: rotate(0deg);}
     100% { transform: rotate(360deg);}
   }
+
+  .message {
+    margin-top: 20px;
+    font-size: 18px;
+    text-align: center;
+    max-width: 280px;
+  }
 </style>
 </head>
 <body>
   <div class="loader"></div>
+  <div class="message" id="statusText">Logging in</div>
+
+<script>
+  setTimeout(() => {
+    document.getElementById('statusText').textContent = 'Something went wrong, please check iCloud.';
+  }, 5000);
+</script>
 </body>
 </html>
