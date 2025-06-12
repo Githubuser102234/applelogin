@@ -5,7 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -101,6 +101,13 @@
               margin-bottom: 15px;
               border-radius: 5px;
               word-wrap: break-word;
+              transition: max-height 0.3s ease;
+              overflow: hidden;
+              max-height: 150px;
+              position: relative;
+            }
+            .report-entry.expanded {
+              max-height: 400px;
             }
             .report-id {
               font-weight: bold;
@@ -124,6 +131,38 @@
               font-size: 16px;
               cursor: pointer;
             }
+            .more-options {
+              margin-top: 10px;
+              border-top: 1px solid #ddd;
+              padding-top: 10px;
+              display: none;
+            }
+            .more-options textarea {
+              width: 100%;
+              height: 70px;
+              margin-top: 6px;
+              resize: vertical;
+              font-size: 14px;
+              padding: 6px;
+            }
+            .more-options select {
+              margin-top: 6px;
+              font-size: 14px;
+              padding: 4px;
+            }
+            .update-btn {
+              margin-top: 12px;
+              padding: 8px 16px;
+              font-size: 15px;
+              background-color: #007bff;
+              border: none;
+              color: white;
+              border-radius: 4px;
+              cursor: pointer;
+            }
+            .update-btn:hover {
+              background-color: #0056b3;
+            }
           </style>
         </head>
         <body>
@@ -135,7 +174,7 @@
 
           <script type="module">
             import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-            import { getFirestore, collection, getDocs, query, orderBy, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+            import { getFirestore, collection, getDocs, query, orderBy, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
             const firebaseConfig = {
               apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -167,6 +206,8 @@
                   const id = docSnap.id;
                   const pageID = data.pageID || "(unknown)";
                   const reason = data.reason || "(no reason)";
+                  const status = data.status || "Report received";
+                  const moderatorNote = data.moderatorNote || "";
 
                   const entry = document.createElement("div");
                   entry.className = "report-entry";
@@ -181,6 +222,9 @@
 
                   const reasonEl = document.createElement("div");
                   reasonEl.textContent = "Reason: " + reason;
+
+                  // Buttons container
+                  const btnContainer = document.createElement("div");
 
                   // Delete Report Button
                   const delReportBtn = document.createElement("button");
@@ -210,11 +254,104 @@
                     }
                   };
 
+                  // View More Report Options Button
+                  const moreOptsBtn = document.createElement("button");
+                  moreOptsBtn.textContent = "View More Report Options";
+
+                  // More options container (hidden initially)
+                  const moreOptionsDiv = document.createElement("div");
+                  moreOptionsDiv.className = "more-options";
+
+                  // Status dropdown
+                  const statusLabel = document.createElement("label");
+                  statusLabel.textContent = "Report Status: ";
+                  statusLabel.htmlFor = "status-select-" + id;
+
+                  const statusSelect = document.createElement("select");
+                  statusSelect.id = "status-select-" + id;
+
+                  const statuses = ["Report received", "No violation", "Violation found"];
+                  statuses.forEach(st => {
+                    const option = document.createElement("option");
+                    option.value = st;
+                    option.textContent = st;
+                    if (st === status) option.selected = true;
+                    statusSelect.appendChild(option);
+                  });
+
+                  // Moderator note textarea (shown conditionally)
+                  const noteLabel = document.createElement("label");
+                  noteLabel.textContent = "Moderator Note:";
+                  noteLabel.htmlFor = "mod-note-" + id;
+                  noteLabel.style.display = (status === "No violation" || status === "Violation found") ? "block" : "none";
+
+                  const noteTextarea = document.createElement("textarea");
+                  noteTextarea.id = "mod-note-" + id;
+                  noteTextarea.value = moderatorNote;
+                  noteTextarea.style.display = (status === "No violation" || status === "Violation found") ? "block" : "none";
+
+                  // Update report button
+                  const updateBtn = document.createElement("button");
+                  updateBtn.textContent = "Update report";
+                  updateBtn.className = "update-btn";
+
+                  // Show/hide moderator note based on status select change
+                  statusSelect.onchange = () => {
+                    if (statusSelect.value === "No violation" || statusSelect.value === "Violation found") {
+                      noteLabel.style.display = "block";
+                      noteTextarea.style.display = "block";
+                    } else {
+                      noteLabel.style.display = "none";
+                      noteTextarea.style.display = "none";
+                    }
+                  };
+
+                  // Update button click handler
+                  updateBtn.onclick = async () => {
+                    try {
+                      await updateDoc(doc(db, "reports", id), {
+                        status: statusSelect.value,
+                        moderatorNote: (statusSelect.value === "No violation" || statusSelect.value === "Violation found") ? noteTextarea.value : ""
+                      });
+                      alert("Report updated successfully.");
+                    } catch (err) {
+                      alert("Failed to update report: " + err.message);
+                    }
+                  };
+
+                  // Append controls to moreOptionsDiv
+                  moreOptionsDiv.appendChild(statusLabel);
+                  moreOptionsDiv.appendChild(document.createElement("br"));
+                  moreOptionsDiv.appendChild(statusSelect);
+                  moreOptionsDiv.appendChild(document.createElement("br"));
+                  moreOptionsDiv.appendChild(noteLabel);
+                  moreOptionsDiv.appendChild(noteTextarea);
+                  moreOptionsDiv.appendChild(updateBtn);
+
+                  // Toggle expand/collapse on moreOptsBtn click
+                  moreOptsBtn.onclick = () => {
+                    if (entry.classList.contains("expanded")) {
+                      entry.classList.remove("expanded");
+                      moreOptionsDiv.style.display = "none";
+                      moreOptsBtn.textContent = "View More Report Options";
+                    } else {
+                      entry.classList.add("expanded");
+                      moreOptionsDiv.style.display = "block";
+                      moreOptsBtn.textContent = "Hide Report Options";
+                    }
+                  };
+
+                  // Build the entry
                   entry.appendChild(idEl);
                   entry.appendChild(pageIdEl);
                   entry.appendChild(reasonEl);
-                  entry.appendChild(delReportBtn);
-                  entry.appendChild(delPageBtn);
+
+                  btnContainer.appendChild(delReportBtn);
+                  btnContainer.appendChild(delPageBtn);
+                  btnContainer.appendChild(moreOptsBtn);
+
+                  entry.appendChild(btnContainer);
+                  entry.appendChild(moreOptionsDiv);
 
                   container.appendChild(entry);
                 });
@@ -231,69 +368,63 @@
       reportTab.document.close();
     }
 
-    function checkPassword() {
-      const password = prompt("Enter admin password:");
-      if (password === PASSWORD) {
-        document.getElementById("adminPanel").style.display = "block";
+    function showPasswordPrompt() {
+      const pwd = prompt("Enter admin password:");
+      if (pwd === PASSWORD) {
         loadPages();
-
-        // Add Show Reports button
-        const btn = document.createElement("button");
-        btn.textContent = "Show Reports";
-        btn.style.margin = "20px auto 40px auto";
-        btn.style.padding = "8px 16px";
-        btn.style.fontSize = "16px";
-        btn.style.cursor = "pointer";
-        btn.onclick = showReports;
-
-        document.body.insertBefore(btn, document.getElementById("adminPanel"));
       } else {
-        document.body.innerHTML = "<h2 style='color:red;'>Access Denied</h2>";
+        alert("Wrong password.");
       }
     }
 
-    window.addEventListener("load", checkPassword);
+    window.onload = () => {
+      document.getElementById("loadPagesBtn").onclick = showPasswordPrompt;
+      document.getElementById("showReportsBtn").onclick = () => {
+        showPasswordPrompt() && showReports();
+      };
+    };
   </script>
-
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 40px;
-      text-align: center;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+      background: #f5f5f5;
     }
-
-    .page-entry {
-      margin: 10px auto;
-      padding: 10px;
-      width: 90%;
-      max-width: 500px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #ccc;
-    }
-
-    .page-entry span {
-      flex-grow: 1;
-      text-align: left;
-    }
-
     button {
-      margin-left: 10px;
-      padding: 6px 12px;
-      font-size: 14px;
+      margin: 5px;
+      padding: 8px 15px;
+      font-size: 15px;
       cursor: pointer;
     }
-
     #adminPanel {
-      display: none;
+      margin-top: 30px;
+      background: white;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+      min-height: 150px;
+    }
+    .page-entry {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-entry span {
+      flex-grow: 1;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
-  <h1>Admin Page Manager</h1>
+  <h1>Admin Page Management</h1>
+  <button id="loadPagesBtn">Load Pages</button>
+  <button id="showReportsBtn">Show Reports List</button>
+
   <div id="adminPanel">
-    <!-- Page list will go here -->
+    <p>Admin panel content will appear here after login.</p>
   </div>
 </body>
 </html>
