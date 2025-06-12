@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Create Page with Hash Routing</title>
+  <title>Create Page with Custom ID</title>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
@@ -22,25 +22,35 @@
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
 
-    function generateRandomID(length = 7) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let result = '';
-      for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
-    }
-
     async function createPage() {
-      const id = generateRandomID();
+      let id = prompt("Enter a custom page name (letters/numbers only):");
+
+      if (!id) return;
+
+      id = id.trim();
+
+      // Optional: validate allowed characters
+      const valid = /^[a-zA-Z0-9_-]+$/.test(id);
+      if (!valid) {
+        alert("Invalid ID. Use only letters, numbers, dashes, or underscores.");
+        return;
+      }
+
       const pageRef = doc(db, "pages", id);
+      const existing = await getDoc(pageRef);
+
+      if (existing.exists()) {
+        alert("That page ID is already taken. Try another one.");
+        return;
+      }
 
       try {
         await setDoc(pageRef, {
           createdAt: new Date().toISOString(),
           pageID: id
         });
-        // Redirect using current path to preserve GitHub Pages subdirectory
+
+        // Redirect to the new page using the current path
         window.location.href = `${window.location.pathname}#${id}`;
       } catch (error) {
         alert("Error creating page: " + error.message);
@@ -102,7 +112,7 @@
   </style>
 </head>
 <body>
-  <h1>Create a Random Page</h1>
+  <h1>Create a Custom Page</h1>
   <button onclick="createPage()">Create Page</button>
   <div id="pageContent">Click "Create Page" to start.</div>
 </body>
