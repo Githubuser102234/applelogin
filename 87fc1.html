@@ -34,7 +34,7 @@
     .page-entry span, .report-entry span {
       flex-grow: 1;
       font-weight: 600;
-      word-break: break-all;
+      word-break: break-word;
     }
 
     button {
@@ -89,7 +89,8 @@
       deleteDoc,
       doc,
       query,
-      orderBy
+      orderBy,
+      where
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -164,8 +165,16 @@
       reportPanel.innerHTML = "<p>Loading reports...</p>";
 
       try {
-        const q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(q);
+        // Try querying with orderBy createdAt
+        let q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
+        let snapshot = await getDocs(q);
+
+        // If no docs or error due to missing createdAt, fallback:
+        if (snapshot.empty) {
+          // fallback query without orderBy
+          q = collection(db, "reports");
+          snapshot = await getDocs(q);
+        }
 
         if (snapshot.empty) {
           reportPanel.innerHTML = "<p>No reports found.</p>";
@@ -176,6 +185,7 @@
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
+          const reportId = docSnap.id;
 
           const item = document.createElement("div");
           item.className = "report-entry";
@@ -183,7 +193,39 @@
           const content = document.createElement("span");
           content.textContent = `From: ${data.sender || "unknown"} | Target: ${data.pageID || "?"} | Reason: ${data.reason || "none"}`;
 
+          // Delete Report Button
+          const delReportBtn = document.createElement("button");
+          delReportBtn.textContent = "Delete Report";
+          delReportBtn.onclick = async () => {
+            const confirmDelReport = confirm(`Delete this report from "${data.sender || "unknown"}"?`);
+            if (confirmDelReport) {
+              await deleteDoc(doc(db, "reports", reportId));
+              item.remove();
+            }
+          };
+
+          // Delete Reported Page Button (if pageID exists)
+          let delPageBtn = null;
+          if (data.pageID) {
+            delPageBtn = document.createElement("button");
+            delPageBtn.textContent = "Delete Reported Page";
+            delPageBtn.onclick = async () => {
+              const confirmDelPage = confirm(`Delete reported page "${data.pageID}"?`);
+              if (confirmDelPage) {
+                try {
+                  await deleteDoc(doc(db, "pages", data.pageID));
+                  alert(`Page "${data.pageID}" deleted.`);
+                } catch (e) {
+                  alert(`Error deleting page: ${e.message}`);
+                }
+              }
+            };
+          }
+
           item.appendChild(content);
+          item.appendChild(delReportBtn);
+          if (delPageBtn) item.appendChild(delPageBtn);
+
           reportPanel.appendChild(item);
         });
       } catch (err) {
