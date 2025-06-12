@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Support Admin Panel</title>
+  <title>Admin Support Chat (Realtime DB)</title>
   <style>
     body {
       margin: 0;
@@ -116,28 +116,27 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
   import {
-    getFirestore,
-    collection,
-    getDocs,
-    onSnapshot,
-    addDoc,
-    query,
-    orderBy,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    getDatabase,
+    ref,
+    push,
+    onChildAdded,
+    get,
+    child
+  } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAmeSusVfOb0F7vq187qVMhaL_D6zzOee4",
     authDomain: "appleloginsupport.firebaseapp.com",
     projectId: "appleloginsupport",
-    storageBucket: "appleloginsupport.firebasestorage.app",
+    databaseURL: "https://appleloginsupport-default-rtdb.firebaseio.com",
+    storageBucket: "appleloginsupport.appspot.com",
     messagingSenderId: "224388969106",
     appId: "1:224388969106:web:73521e4394a9f049b72c4b",
     measurementId: "G-E07HPYELC4"
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  const db = getDatabase(app);
 
   const sessionListEl = document.getElementById("session-list");
   const sessionsContainer = document.getElementById("sessions");
@@ -149,48 +148,37 @@
 
   let currentChatId = "";
 
-  // List all supportChat-XXXXX collections
   async function listChats() {
-    const collections = await getDocs(collection(db, "__metadata__/default"));
-    sessionsContainer.innerHTML = '';
-
-    // Fallback: check all known chats manually
-    const queryURL = `https://firestore.googleapis.com/v1/projects/appleloginsupport/databases/(default)/documents`;
-    fetch(queryURL).then(res => res.json()).then(data => {
-      // simulate manual filtering
-    });
-
-    // Fallback: simulate known format
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith("supportChat-")) {
+    const snapshot = await get(ref(db, "supportChats"));
+    if (snapshot.exists()) {
+      const chats = snapshot.val();
+      sessionsContainer.innerHTML = "";
+      Object.keys(chats).forEach(chatId => {
         const div = document.createElement("div");
         div.className = "session-item";
-        div.textContent = key.replace("supportChat-", "");
-        div.onclick = () => openChat(key);
+        div.textContent = chatId;
+        div.onclick = () => openChat(chatId);
         sessionsContainer.appendChild(div);
-      }
+      });
+    } else {
+      sessionsContainer.innerHTML = "<p style='padding:15px;'>No active chats found.</p>";
     }
   }
 
-  function openChat(chatKey) {
-    currentChatId = chatKey;
+  function openChat(chatId) {
+    currentChatId = chatId;
     sessionListEl.classList.remove("active");
     chatUI.classList.add("active");
-    chatIdTitle.textContent = chatKey.replace("supportChat-", "Chat ");
+    chatIdTitle.textContent = chatId;
+    chatMessages.innerHTML = "";
 
-    const ref = collection(db, chatKey);
-    const q = query(ref, orderBy("createdAt"));
-
-    onSnapshot(q, (snapshot) => {
-      chatMessages.innerHTML = "";
-      snapshot.forEach(doc => {
-        const msg = doc.data();
-        const div = document.createElement("div");
-        div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
-        div.textContent = `${msg.sender === "user" ? "User" : "You"}: ${msg.text}`;
-        chatMessages.appendChild(div);
-      });
+    const messagesRef = ref(db, `supportChats/${chatId}`);
+    onChildAdded(messagesRef, (snapshot) => {
+      const msg = snapshot.val();
+      const div = document.createElement("div");
+      div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
+      div.textContent = `${msg.sender === "user" ? "User" : "You"}: ${msg.text}`;
+      chatMessages.appendChild(div);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     });
   }
@@ -199,10 +187,10 @@
     const text = input.value.trim();
     if (!text || !currentChatId) return;
 
-    await addDoc(collection(db, currentChatId), {
+    await push(ref(db, `supportChats/${currentChatId}`), {
       text,
       sender: "support",
-      createdAt: serverTimestamp()
+      timestamp: Date.now()
     });
 
     input.value = "";
