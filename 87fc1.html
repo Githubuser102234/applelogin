@@ -5,7 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -74,316 +74,35 @@
       }
     }
 
-    async function showReports() {
-      // Open a new tab and write the report list HTML there
-      const reportTab = window.open();
-      reportTab.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Reports List</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              padding: 30px;
-              max-width: 700px;
-              margin: auto;
-              background: #f9f9f9;
-            }
-            h1 {
-              text-align: center;
-              margin-bottom: 30px;
-            }
-            .report-entry {
-              background: white;
-              border: 1px solid #ccc;
-              padding: 15px;
-              margin-bottom: 15px;
-              border-radius: 5px;
-              word-wrap: break-word;
-              transition: max-height 0.3s ease;
-              overflow: hidden;
-              max-height: 150px;
-              position: relative;
-            }
-            .report-entry.expanded {
-              max-height: 400px;
-            }
-            .report-id {
-              font-weight: bold;
-              color: #555;
-              margin-bottom: 5px;
-            }
-            .report-pageid {
-              color: #007bff;
-              margin-bottom: 8px;
-            }
-            button {
-              margin: 5px 10px 0 0;
-              padding: 6px 12px;
-              font-size: 14px;
-              cursor: pointer;
-            }
-            .close-btn {
-              display: block;
-              margin: 20px auto;
-              padding: 10px 25px;
-              font-size: 16px;
-              cursor: pointer;
-            }
-            .more-options {
-              margin-top: 10px;
-              border-top: 1px solid #ddd;
-              padding-top: 10px;
-              display: none;
-            }
-            .more-options textarea {
-              width: 100%;
-              height: 70px;
-              margin-top: 6px;
-              resize: vertical;
-              font-size: 14px;
-              padding: 6px;
-            }
-            .more-options select {
-              margin-top: 6px;
-              font-size: 14px;
-              padding: 4px;
-            }
-            .update-btn {
-              margin-top: 12px;
-              padding: 8px 16px;
-              font-size: 15px;
-              background-color: #007bff;
-              border: none;
-              color: white;
-              border-radius: 4px;
-              cursor: pointer;
-            }
-            .update-btn:hover {
-              background-color: #0056b3;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Reports List</h1>
-          <div id="reportsContainer">
-            <p>Loading reports...</p>
-          </div>
-          <button class="close-btn" onclick="window.close()">Close</button>
-
-          <script type="module">
-            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-            import { getFirestore, collection, getDocs, query, orderBy, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
-
-            const firebaseConfig = {
-              apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
-              authDomain: "applelogin-290fb.firebaseapp.com",
-              projectId: "applelogin-290fb",
-              storageBucket: "applelogin-290fb.firebasestorage.app",
-              messagingSenderId: "399647107073",
-              appId: "1:399647107073:web:0e56c01ed4f931a3167800",
-              measurementId: "G-R9H9V909MS"
-            };
-
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-
-            async function loadReports() {
-              const container = document.getElementById("reportsContainer");
-              try {
-                const q = query(collection(db, "reports"), orderBy("reportedAt", "desc"));
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty) {
-                  container.innerHTML = "<p>No reports found.</p>";
-                  return;
-                }
-
-                container.innerHTML = "";
-                snapshot.forEach(docSnap => {
-                  const data = docSnap.data();
-                  const id = docSnap.id;
-                  const pageID = data.pageID || "(unknown)";
-                  const reason = data.reason || "(no reason)";
-                  const status = data.status || "Report received";
-                  const moderatorNote = data.moderatorNote || "";
-
-                  const entry = document.createElement("div");
-                  entry.className = "report-entry";
-
-                  const idEl = document.createElement("div");
-                  idEl.className = "report-id";
-                  idEl.textContent = "Report ID: " + id;
-
-                  const pageIdEl = document.createElement("div");
-                  pageIdEl.className = "report-pageid";
-                  pageIdEl.textContent = "Page ID: " + pageID;
-
-                  const reasonEl = document.createElement("div");
-                  reasonEl.textContent = "Reason: " + reason;
-
-                  // Buttons container
-                  const btnContainer = document.createElement("div");
-
-                  // Delete Report Button
-                  const delReportBtn = document.createElement("button");
-                  delReportBtn.textContent = "Delete Report";
-                  delReportBtn.onclick = async () => {
-                    if (confirm("Delete this report?")) {
-                      await deleteDoc(doc(db, "reports", id));
-                      entry.remove();
-                    }
-                  };
-
-                  // Delete Reported Page Button
-                  const delPageBtn = document.createElement("button");
-                  delPageBtn.textContent = "Delete Reported Page";
-                  delPageBtn.onclick = async () => {
-                    if (pageID === "(unknown)") {
-                      alert("Page ID unknown, cannot delete page.");
-                      return;
-                    }
-                    if (confirm(\`Delete the reported page "\${pageID}"?\`)) {
-                      try {
-                        await deleteDoc(doc(db, "pages", pageID));
-                        alert("Page deleted.");
-                      } catch (err) {
-                        alert("Failed to delete page: " + err.message);
-                      }
-                    }
-                  };
-
-                  // View More Report Options Button
-                  const moreOptsBtn = document.createElement("button");
-                  moreOptsBtn.textContent = "View More Report Options";
-
-                  // More options container (hidden initially)
-                  const moreOptionsDiv = document.createElement("div");
-                  moreOptionsDiv.className = "more-options";
-
-                  // Status dropdown
-                  const statusLabel = document.createElement("label");
-                  statusLabel.textContent = "Report Status: ";
-                  statusLabel.htmlFor = "status-select-" + id;
-
-                  const statusSelect = document.createElement("select");
-                  statusSelect.id = "status-select-" + id;
-
-                  const statuses = ["Report received", "No violation", "Violation found"];
-                  statuses.forEach(st => {
-                    const option = document.createElement("option");
-                    option.value = st;
-                    option.textContent = st;
-                    if (st === status) option.selected = true;
-                    statusSelect.appendChild(option);
-                  });
-
-                  // Moderator note textarea (shown conditionally)
-                  const noteLabel = document.createElement("label");
-                  noteLabel.textContent = "Moderator Note:";
-                  noteLabel.htmlFor = "mod-note-" + id;
-                  noteLabel.style.display = (status === "No violation" || status === "Violation found") ? "block" : "none";
-
-                  const noteTextarea = document.createElement("textarea");
-                  noteTextarea.id = "mod-note-" + id;
-                  noteTextarea.value = moderatorNote;
-                  noteTextarea.style.display = (status === "No violation" || status === "Violation found") ? "block" : "none";
-
-                  // Update report button
-                  const updateBtn = document.createElement("button");
-                  updateBtn.textContent = "Update report";
-                  updateBtn.className = "update-btn";
-
-                  // Show/hide moderator note based on status select change
-                  statusSelect.onchange = () => {
-                    if (statusSelect.value === "No violation" || statusSelect.value === "Violation found") {
-                      noteLabel.style.display = "block";
-                      noteTextarea.style.display = "block";
-                    } else {
-                      noteLabel.style.display = "none";
-                      noteTextarea.style.display = "none";
-                    }
-                  };
-
-                  // Update button click handler
-                  updateBtn.onclick = async () => {
-                    try {
-                      await updateDoc(doc(db, "reports", id), {
-                        status: statusSelect.value,
-                        moderatorNote: (statusSelect.value === "No violation" || statusSelect.value === "Violation found") ? noteTextarea.value : ""
-                      });
-                      alert("Report updated successfully.");
-                    } catch (err) {
-                      alert("Failed to update report: " + err.message);
-                    }
-                  };
-
-                  // Append controls to moreOptionsDiv
-                  moreOptionsDiv.appendChild(statusLabel);
-                  moreOptionsDiv.appendChild(document.createElement("br"));
-                  moreOptionsDiv.appendChild(statusSelect);
-                  moreOptionsDiv.appendChild(document.createElement("br"));
-                  moreOptionsDiv.appendChild(noteLabel);
-                  moreOptionsDiv.appendChild(noteTextarea);
-                  moreOptionsDiv.appendChild(updateBtn);
-
-                  // Toggle expand/collapse on moreOptsBtn click
-                  moreOptsBtn.onclick = () => {
-                    if (entry.classList.contains("expanded")) {
-                      entry.classList.remove("expanded");
-                      moreOptionsDiv.style.display = "none";
-                      moreOptsBtn.textContent = "View More Report Options";
-                    } else {
-                      entry.classList.add("expanded");
-                      moreOptionsDiv.style.display = "block";
-                      moreOptsBtn.textContent = "Hide Report Options";
-                    }
-                  };
-
-                  // Build the entry
-                  entry.appendChild(idEl);
-                  entry.appendChild(pageIdEl);
-                  entry.appendChild(reasonEl);
-
-                  btnContainer.appendChild(delReportBtn);
-                  btnContainer.appendChild(delPageBtn);
-                  btnContainer.appendChild(moreOptsBtn);
-
-                  entry.appendChild(btnContainer);
-                  entry.appendChild(moreOptionsDiv);
-
-                  container.appendChild(entry);
-                });
-              } catch (err) {
-                container.innerHTML = "<p>Error loading reports: " + err.message + "</p>";
-              }
-            }
-
-            window.addEventListener("load", loadReports);
-          <\/script>
-        </body>
-        </html>
-      `);
-      reportTab.document.close();
+    function showReports() {
+      const win = window.open("public-list.html#reports", "_blank");
     }
 
-    function showPasswordPrompt() {
-      const pwd = prompt("Enter admin password:");
-      if (pwd === PASSWORD) {
-        loadPages();
-      } else {
-        alert("Wrong password.");
-      }
+    function unlockAdmin() {
+      document.getElementById("authBox").style.display = "none";
+      document.getElementById("adminControls").style.display = "block";
+      loadPages();
     }
 
-    window.onload = () => {
-      document.getElementById("loadPagesBtn").onclick = showPasswordPrompt;
-      document.getElementById("showReportsBtn").onclick = () => {
-        showPasswordPrompt() && showReports();
+    window.addEventListener("load", () => {
+      const submitBtn = document.getElementById("submitPassword");
+      const input = document.getElementById("adminPassword");
+
+      submitBtn.onclick = () => {
+        const value = input.value.trim();
+        if (value === PASSWORD) {
+          unlockAdmin();
+        } else {
+          alert("Incorrect password.");
+        }
       };
-    };
+
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") submitBtn.click();
+      });
+    });
   </script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -392,12 +111,11 @@
       margin: auto;
       background: #f5f5f5;
     }
-    button {
-      margin: 5px;
-      padding: 8px 15px;
-      font-size: 15px;
-      cursor: pointer;
+
+    #adminControls {
+      display: none;
     }
+
     #adminPanel {
       margin-top: 30px;
       background: white;
@@ -406,25 +124,56 @@
       border-radius: 5px;
       min-height: 150px;
     }
+
     .page-entry {
       margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 12px;
     }
+
     .page-entry span {
       flex-grow: 1;
       font-weight: 600;
     }
+
+    button {
+      margin: 5px;
+      padding: 8px 15px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    #authBox {
+      text-align: center;
+      margin-top: 50px;
+    }
+
+    #adminPassword {
+      padding: 8px;
+      font-size: 16px;
+      width: 200px;
+      margin-right: 10px;
+    }
   </style>
 </head>
+
 <body>
   <h1>Admin Page Management</h1>
-  <button id="loadPagesBtn">Load Pages</button>
-  <button id="showReportsBtn">Show Reports List</button>
 
-  <div id="adminPanel">
-    <p>Admin panel content will appear here after login.</p>
+  <div id="authBox">
+    <p>Please enter the admin password to continue:</p>
+    <input type="password" id="adminPassword" placeholder="Admin Password">
+    <button id="submitPassword">Enter</button>
+  </div>
+
+  <div id="adminControls">
+    <button onclick="loadPages()">Load Pages</button>
+    <button onclick="showReports()">Show Reports List</button>
+
+    <div id="adminPanel">
+      <p>Admin panel content will appear here after login.</p>
+    </div>
   </div>
 </body>
 </html>
