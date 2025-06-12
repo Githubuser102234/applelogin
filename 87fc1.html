@@ -111,6 +111,12 @@
               color: #007bff;
               margin-bottom: 8px;
             }
+            button {
+              margin: 5px 10px 0 0;
+              padding: 6px 12px;
+              font-size: 14px;
+              cursor: pointer;
+            }
             .close-btn {
               display: block;
               margin: 20px auto;
@@ -129,7 +135,7 @@
 
           <script type="module">
             import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-            import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+            import { getFirestore, collection, getDocs, query, orderBy, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
             const firebaseConfig = {
               apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -176,9 +182,39 @@
                   const reasonEl = document.createElement("div");
                   reasonEl.textContent = "Reason: " + reason;
 
+                  // Delete Report Button
+                  const delReportBtn = document.createElement("button");
+                  delReportBtn.textContent = "Delete Report";
+                  delReportBtn.onclick = async () => {
+                    if (confirm("Delete this report?")) {
+                      await deleteDoc(doc(db, "reports", id));
+                      entry.remove();
+                    }
+                  };
+
+                  // Delete Reported Page Button
+                  const delPageBtn = document.createElement("button");
+                  delPageBtn.textContent = "Delete Reported Page";
+                  delPageBtn.onclick = async () => {
+                    if (pageID === "(unknown)") {
+                      alert("Page ID unknown, cannot delete page.");
+                      return;
+                    }
+                    if (confirm(\`Delete the reported page "\${pageID}"?\`)) {
+                      try {
+                        await deleteDoc(doc(db, "pages", pageID));
+                        alert("Page deleted.");
+                      } catch (err) {
+                        alert("Failed to delete page: " + err.message);
+                      }
+                    }
+                  };
+
                   entry.appendChild(idEl);
                   entry.appendChild(pageIdEl);
                   entry.appendChild(reasonEl);
+                  entry.appendChild(delReportBtn);
+                  entry.appendChild(delPageBtn);
 
                   container.appendChild(entry);
                 });
