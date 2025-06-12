@@ -68,7 +68,8 @@
     const loader = document.getElementById('loader');
     const appleBtn = document.getElementById('appleBtn');
 
-    // Show "Continue with Apple" after 5 seconds
+    let storedCredentialId = null;
+
     setTimeout(() => {
       loader.style.display = 'none';
       statusText.textContent = '';
@@ -88,25 +89,56 @@
       }
 
       try {
-        const credential = await navigator.credentials.get({
+        // If first time, create a Face ID credential
+        if (!storedCredentialId) {
+          const cred = await navigator.credentials.create({
+            publicKey: {
+              challenge: new Uint8Array(32),
+              rp: {
+                name: "Face ID Login Demo"
+              },
+              user: {
+                id: new Uint8Array(16),
+                name: "user@example.com",
+                displayName: "User"
+              },
+              pubKeyCredParams: [
+                { type: "public-key", alg: -7 } // ES256
+              ],
+              authenticatorSelection: {
+                authenticatorAttachment: "platform",
+                userVerification: "required"
+              },
+              timeout: 60000,
+              attestation: "none"
+            }
+          });
+
+          if (!cred) throw new Error("Credential creation failed.");
+          storedCredentialId = cred.rawId;
+        }
+
+        // Now login using the stored credential
+        const getResult = await navigator.credentials.get({
           publicKey: {
-            challenge: new Uint8Array(32), // should come from server in real use
+            challenge: new Uint8Array(32),
             timeout: 60000,
             userVerification: "required",
-            authenticatorSelection: {
-              authenticatorAttachment: "platform"  // 🔐 ensures it stays on the same device
-            },
-            allowCredentials: []
+            allowCredentials: [
+              {
+                id: storedCredentialId,
+                type: "public-key",
+                transports: ["internal"]
+              }
+            ]
           }
         });
 
-        if (credential) {
+        if (getResult) {
           statusText.textContent = "Face ID verified!";
           loader.style.display = 'none';
         } else {
-          statusText.textContent = "Verification failed.";
-          loader.style.display = 'none';
-          appleBtn.style.display = 'block';
+          throw new Error("Verification failed.");
         }
       } catch (err) {
         statusText.textContent = "";
@@ -115,7 +147,7 @@
       }
     });
 
-    // Prevent double-tap zoom manually (for older iOS)
+    // Prevent double-tap zoom manually
     let lastTouchEnd = 0;
     document.addEventListener('touchend', function(event) {
       const now = Date.now();
