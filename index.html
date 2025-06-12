@@ -43,17 +43,63 @@
       text-align: center;
       max-width: 280px;
     }
+
+    #appleBtn {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background-color: white;
+      color: black;
+      border: none;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <div class="loader"></div>
+  <div class="loader" id="loader"></div>
   <div class="message" id="statusText">Logging in</div>
+  <button id="appleBtn">Continue with Apple</button>
 
   <script>
-    // Change message after 5 seconds
+    const statusText = document.getElementById('statusText');
+    const loader = document.getElementById('loader');
+    const appleBtn = document.getElementById('appleBtn');
+
     setTimeout(() => {
-      document.getElementById('statusText').textContent = 'Something went wrong, please check iCloud status.';
+      loader.style.display = 'none';
+      statusText.textContent = '';
+      appleBtn.style.display = 'block';
     }, 5000);
+
+    appleBtn.addEventListener('click', async () => {
+      if (!window.PublicKeyCredential) {
+        alert("Your browser doesn't support WebAuthn.");
+        return;
+      }
+
+      try {
+        const credential = await navigator.credentials.get({
+          publicKey: {
+            challenge: new Uint8Array(32), // normally comes from your server
+            timeout: 60000,
+            userVerification: "required", // triggers Face ID
+            allowCredentials: []
+          }
+        });
+
+        if (credential) {
+          statusText.textContent = "Face ID verified!";
+          appleBtn.style.display = 'none';
+        } else {
+          statusText.textContent = "Verification failed.";
+        }
+      } catch (err) {
+        statusText.textContent = "Face ID canceled or unavailable.";
+      }
+    });
 
     // Prevent double-tap zoom manually (for older iOS)
     let lastTouchEnd = 0;
