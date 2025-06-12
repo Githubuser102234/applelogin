@@ -30,7 +30,6 @@
       width: 80px;
       height: 80px;
       animation: spin 1s linear infinite;
-      display: none;
     }
 
     @keyframes spin {
@@ -69,7 +68,7 @@
     const loader = document.getElementById('loader');
     const appleBtn = document.getElementById('appleBtn');
 
-    // Initial timeout to show Apple button
+    // Show "Continue with Apple" after 5 seconds
     setTimeout(() => {
       loader.style.display = 'none';
       statusText.textContent = '';
@@ -92,7 +91,7 @@
       try {
         const credential = await navigator.credentials.get({
           publicKey: {
-            challenge: new Uint8Array(32), // should come from server
+            challenge: new Uint8Array(32), // from server in real app
             timeout: 60000,
             userVerification: "required", // triggers Face ID
             allowCredentials: []
