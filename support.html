@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Support Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -128,12 +128,6 @@
     #chat-input button:active {
       background: #0056b3;
     }
-    #closed-msg {
-      text-align: center;
-      color: #888;
-      padding: 10px;
-      font-style: italic;
-    }
   </style>
 </head>
 <body>
@@ -167,9 +161,7 @@
     getDatabase,
     ref,
     push,
-    onChildAdded,
-    onValue,
-    off
+    onChildAdded
   } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
   const firebaseConfig = {
@@ -198,7 +190,6 @@
 
   let userName = localStorage.getItem('supportChatUserName') || '';
 
-  // Generates a random chat ID
   function generateHash() {
     return 'chat-' + Math.random().toString(36).substring(2, 8);
   }
@@ -256,72 +247,20 @@
       chatUI.style.display = "none";
       messagesDiv.innerHTML = "";
       input.value = "";
-      removeListeners();
-    }
-  }
-
-  // To hold unsubscribe functions for Firebase listeners
-  let messagesListener = null;
-  let closedListener = null;
-
-  function removeListeners() {
-    if (messagesListener) {
-      off(ref(db), 'child_added', messagesListener);
-      messagesListener = null;
-    }
-    if (closedListener) {
-      off(ref(db), 'value', closedListener);
-      closedListener = null;
     }
   }
 
   function loadChat(chatId) {
+    const chatRef = ref(db, `supportChats/${chatId}`);
     messagesDiv.innerHTML = "";
 
-    removeListeners();
-
-    const messagesRef = ref(db, `supportChats/${chatId}/messages`);
-    const closedRef = ref(db, `supportChats/${chatId}/closed`);
-
-    // Listen for new messages
-    messagesListener = onChildAdded(messagesRef, snapshot => {
+    onChildAdded(chatRef, (snapshot) => {
       const msg = snapshot.val();
       const div = document.createElement("div");
       div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
       div.textContent = `${msg.sender === "user" ? userName : "Support"}: ${msg.text}`;
       messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-
-    // Listen for chat closed flag
-    closedListener = onValue(closedRef, snapshot => {
-      const isClosed = snapshot.val();
-      if (isClosed) {
-        // Chat is closed: disable input & hide input bar, show closed message
-        input.disabled = true;
-        sendBtn.disabled = true;
-        input.style.display = "none";
-        sendBtn.style.display = "none";
-
-        if (!document.getElementById('closed-msg')) {
-          const closedMsgDiv = document.createElement("div");
-          closedMsgDiv.id = "closed-msg";
-          closedMsgDiv.textContent = "This chat has been closed";
-          messagesDiv.appendChild(closedMsgDiv);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-      } else {
-        // Chat is open: enable input & show input bar, remove closed message
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.style.display = "block";
-        sendBtn.style.display = "inline-block";
-
-        const closedMsgDiv = document.getElementById('closed-msg');
-        if (closedMsgDiv) {
-          closedMsgDiv.remove();
-        }
-      }
     });
   }
 
@@ -330,9 +269,8 @@
     if (!text || !location.hash.startsWith("#chat-")) return;
 
     const chatId = location.hash.substring(1);
-    const chatMessagesRef = ref(db, `supportChats/${chatId}/messages`);
-
-    await push(chatMessagesRef, {
+    const chatRef = ref(db, `supportChats/${chatId}`);
+    await push(chatRef, {
       text,
       sender: "user",
       name: userName,
