@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Support Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #chat-container {
+      position: fixed; bottom: 20px; right: 20px;
+      width: 300px; background: #fff; border: 1px solid #ccc;
+      border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #chat-header {
+      background: #007bff; color: white; padding: 10px;
+      font-weight: bold; text-align: center;
+    }
+    #chat-messages {
+      flex: 1; padding: 10px; height: 200px; overflow-y: auto;
+      background: #f9f9f9;
+    }
+    .message { margin: 5px 0; }
+    .user { text-align: right; color: blue; }
+    .support { text-align: left; color: green; }
+    #chat-input {
+      display: flex; border-top: 1px solid #ccc;
+    }
+    #chat-input input {
+      flex: 1; border: none; padding: 10px; font-size: 14px;
+    }
+    #chat-input button {
+      background: #007bff; color: white; border: none;
+      padding: 10px 15px; cursor: pointer;
+    }
+    #chat-input button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+
+<div id="chat-container">
+  <div id="chat-header">Live Support</div>
+  <div id="chat-messages"></div>
+  <div id="chat-input">
+    <input type="text" id="message-input" placeholder="Type your message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<!-- Firebase App & Firestore -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmeSusVfOb0F7vq187qVMhaL_D6zzOee4",
+    authDomain: "appleloginsupport.firebaseapp.com",
+    projectId: "appleloginsupport",
+    storageBucket: "appleloginsupport.firebasestorage.app",
+    messagingSenderId: "224388969106",
+    appId: "1:224388969106:web:73521e4394a9f049b72c4b",
+    measurementId: "G-E07HPYELC4"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const messagesDiv = document.getElementById('chat-messages');
+  const input = document.getElementById('message-input');
+
+  // Send message to Firestore
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+
+    await addDoc(collection(db, "supportChat"), {
+      text,
+      sender: "user",
+      createdAt: serverTimestamp()
+    });
+
+    input.value = "";
+  }
+
+  // Listen to new messages
+  const q = query(collection(db, "supportChat"), orderBy("createdAt"));
+  onSnapshot(q, (snapshot) => {
+    messagesDiv.innerHTML = "";
+    snapshot.forEach(doc => {
+      const msg = doc.data();
+      const div = document.createElement('div');
+      div.className = 'message ' + (msg.sender === "user" ? "user" : "support");
+      div.textContent = `${msg.sender === "user" ? "You" : "Support"}: ${msg.text}`;
+      messagesDiv.appendChild(div);
+    });
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+
+  // Enter to send
+  input.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
+
+</body>
+</html>
