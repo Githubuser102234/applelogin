@@ -5,7 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -21,7 +21,6 @@
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
 
-    // Ensure clientId exists
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
       clientId = 'client-' + Math.random().toString(36).substring(2, 15);
@@ -33,16 +32,14 @@
       pageList.innerHTML = "Loading pages...";
 
       try {
-        // Try ordering by createdAt descending
         let q;
         try {
           q = query(collection(db, "pages"), orderBy("createdAt", "desc"));
-          await getDocs(q); // test if query works
+          await getDocs(q);
         } catch {
-          // fallback if createdAt is missing or index not ready
           q = query(collection(db, "pages"), orderBy("pageID"));
         }
-        
+
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
@@ -54,7 +51,6 @@
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
-          // Use pageID from data or fallback to doc ID
           const id = data.pageID || docSnap.id;
 
           const entry = document.createElement("div");
@@ -81,81 +77,63 @@
     }
 
     function openReportWindow(pageID) {
-      const reportHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Report Page: ${pageID}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 30px; max-width: 500px; margin: auto; }
-            textarea { width: 100%; height: 120px; margin-bottom: 20px; font-size: 16px; }
-            button { padding: 10px 20px; margin-right: 10px; font-size: 16px; cursor: pointer; }
-            p#status { color: green; margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <h2>Report Page: ${pageID}</h2>
-          <label for="reason">Report reason:</label><br>
-          <textarea id="reason" placeholder="Enter reason here..."></textarea><br>
-          <button id="sendBtn">Send</button>
-          <button id="cancelBtn">Cancel</button>
-          <p id="status"></p>
+      const reportHTML = `<!DOCTYPE html>
+<html><head><title>Report Page: ${pageID}</title><style>
+body { font-family: Arial, sans-serif; padding: 30px; max-width: 500px; margin: auto; }
+textarea { width: 100%; height: 120px; margin-bottom: 20px; font-size: 16px; }
+button { padding: 10px 20px; margin-right: 10px; font-size: 16px; cursor: pointer; }
+p#status { color: green; margin-top: 10px; }
+</style></head><body>
+<h2>Report Page: ${pageID}</h2>
+<label for="reason">Report reason:</label><br>
+<textarea id="reason" placeholder="Enter reason here..."></textarea><br>
+<button id="sendBtn">Send</button>
+<button id="cancelBtn">Cancel</button>
+<p id="status"></p>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-          <script type="module">
-            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-            import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+const firebaseConfig = ${JSON.stringify(firebaseConfig)};
 
-            const firebaseConfig = {
-              apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
-              authDomain: "applelogin-290fb.firebaseapp.com",
-              projectId: "applelogin-290fb",
-              storageBucket: "applelogin-290fb.firebasestorage.app",
-              messagingSenderId: "399647107073",
-              appId: "1:399647107073:web:0e56c01ed4f931a3167800",
-              measurementId: "G-R9H9V909MS"
-            };
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
+const pageID = "${pageID}";
 
-            const pageID = "${pageID}";
+let clientId = localStorage.getItem('clientId');
+if (!clientId) {
+  clientId = 'client-' + Math.random().toString(36).substring(2, 15);
+  localStorage.setItem('clientId', clientId);
+}
 
-            let clientId = localStorage.getItem('clientId');
-            if (!clientId) {
-              clientId = 'client-' + Math.random().toString(36).substring(2, 15);
-              localStorage.setItem('clientId', clientId);
-            }
+document.getElementById('cancelBtn').onclick = () => {
+  window.close();
+};
 
-            document.getElementById('cancelBtn').onclick = () => {
-              window.close();
-            };
-
-            document.getElementById('sendBtn').onclick = async () => {
-              const reason = document.getElementById('reason').value.trim();
-              const statusEl = document.getElementById('status');
-              if (!reason) {
-                alert('Please enter a reason to report.');
-                return;
-              }
-              try {
-                await addDoc(collection(db, "reports"), {
-                  pageID,
-                  reason,
-                  reportedAt: new Date().toISOString(),
-                  clientId,
-                  status: "Report received",
-                  moderatorNote: ""
-                });
-                statusEl.textContent = "Report sent successfully!";
-                setTimeout(() => window.close(), 1500);
-              } catch (err) {
-                alert('Error sending report: ' + err.message);
-              }
-            };
-          <\/script>
-        </body>
-        </html>
-      `;
+document.getElementById('sendBtn').onclick = async () => {
+  const reason = document.getElementById('reason').value.trim();
+  const statusEl = document.getElementById('status');
+  if (!reason) {
+    alert('Please enter a reason to report.');
+    return;
+  }
+  try {
+    await addDoc(collection(db, "reports"), {
+      pageID,
+      reason,
+      reportedAt: new Date().toISOString(),
+      clientId,
+      status: "Report received",
+      moderatorNote: ""
+    });
+    statusEl.textContent = "Report sent successfully!";
+    setTimeout(() => window.close(), 1500);
+  } catch (err) {
+    alert('Error sending report: ' + err.message);
+  }
+};
+<\/script></body></html>`;
 
       const newWindow = window.open();
       newWindow.document.write(reportHTML);
@@ -163,137 +141,72 @@
     }
 
     async function showMyReports() {
-      const reportsHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>My Reports</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              padding: 30px;
-              max-width: 800px;
-              margin: auto;
-              background: #f5f5f5;
-            }
-            h1 {
-              text-align: center;
-              margin-bottom: 20px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              background: white;
-              box-shadow: 0 0 5px rgba(0,0,0,0.1);
-            }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 10px;
-              text-align: left;
-              vertical-align: top;
-            }
-            th {
-              background: #007bff;
-              color: white;
-            }
-            tr:nth-child(even) {
-              background: #f9f9f9;
-            }
-            .moderator-note {
-              font-style: italic;
-              color: #555;
-              margin-top: 5px;
-            }
-            .close-btn {
-              display: block;
-              margin: 20px auto 0 auto;
-              padding: 10px 25px;
-              font-size: 16px;
-              cursor: pointer;
-              background: #007bff;
-              color: white;
-              border: none;
-              border-radius: 5px;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>My Sent Reports</h1>
-          <div id="reportsContainer"><p>Loading reports...</p></div>
-          <button class="close-btn" onclick="window.close()">Close</button>
+      const reportsHTML = `<!DOCTYPE html>
+<html><head><title>My Reports</title><style>
+body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: auto; background: #f5f5f5; }
+h1 { text-align: center; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top; }
+th { background: #007bff; color: white; }
+tr:nth-child(even) { background: #f9f9f9; }
+.moderator-note { font-style: italic; color: #555; margin-top: 5px; }
+.close-btn { display: block; margin: 20px auto 0 auto; padding: 10px 25px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+</style></head><body>
+<h1>My Sent Reports</h1>
+<div id="reportsContainer"><p>Loading reports...</p></div>
+<button class="close-btn" onclick="window.close()">Close</button>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-          <script type="module">
-            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-            import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+const firebaseConfig = ${JSON.stringify(firebaseConfig)};
 
-            const firebaseConfig = {
-              apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
-              authDomain: "applelogin-290fb.firebaseapp.com",
-              projectId: "applelogin-290fb",
-              storageBucket: "applelogin-290fb.firebasestorage.app",
-              messagingSenderId: "399647107073",
-              appId: "1:399647107073:web:0e56c01ed4f931a3167800",
-              measurementId: "G-R9H9V909MS"
-            };
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
+let clientId = localStorage.getItem('clientId');
 
-            let clientId = localStorage.getItem('clientId');
+async function loadReports() {
+  const container = document.getElementById('reportsContainer');
+  if (!clientId) {
+    container.innerHTML = "<p>Cannot identify your reports.</p>";
+    return;
+  }
+  try {
+    const reportsQuery = query(
+      collection(db, "reports"),
+      where("clientId", "==", clientId),
+      orderBy("reportedAt", "desc")
+    );
+    const snapshot = await getDocs(reportsQuery);
 
-            async function loadReports() {
-              const container = document.getElementById('reportsContainer');
-              if (!clientId) {
-                container.innerHTML = "<p>Cannot identify your reports.</p>";
-                return;
-              }
-              try {
-                const reportsQuery = query(
-                  collection(db, "reports"),
-                  where("clientId", "==", clientId),
-                  orderBy("reportedAt", "desc")
-                );
-                const snapshot = await getDocs(reportsQuery);
+    if (snapshot.empty) {
+      container.innerHTML = "<p>You have not sent any reports.</p>";
+      return;
+    }
 
-                if (snapshot.empty) {
-                  container.innerHTML = "<p>You have not sent any reports.</p>";
-                  return;
-                }
+    let html = "<table><thead><tr><th>Report ID</th><th>Page ID</th><th>Reason</th><th>Status</th></tr></thead><tbody>";
 
-                let html = "<table><thead><tr><th>Report ID</th><th>Page ID</th><th>Reason</th><th>Status</th></tr></thead><tbody>";
+    snapshot.forEach(docSnap => {
+      const report = docSnap.data();
+      const id = docSnap.id;
+      let statusHTML = \`<strong>\${report.status || 'Report received'}</strong>\`;
+      if (report.moderatorNote) {
+        statusHTML += \`<div class="moderator-note">Moderator note: \${report.moderatorNote}</div>\`;
+      }
+      html += \`<tr><td>\${id}</td><td>\${report.pageID}</td><td>\${report.reason}</td><td>\${statusHTML}</td></tr>\`;
+    });
 
-                snapshot.forEach(docSnap => {
-                  const report = docSnap.data();
-                  const id = docSnap.id;
-                  let statusHTML = `<strong>${report.status || 'Report received'}</strong>`;
-                  if (report.status === "No violation" || report.status === "Violation found and action taken") {
-                    if (report.moderatorNote) {
-                      statusHTML += `<div class="moderator-note">Moderator note: ${report.moderatorNote}</div>`;
-                    }
-                  }
-                  html += `
-                    <tr>
-                      <td>${id}</td>
-                      <td>${report.pageID}</td>
-                      <td>${report.reason}</td>
-                      <td>${statusHTML}</td>
-                    </tr>
-                  `;
-                });
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = \`<p>Error loading reports: \${err.message}</p>\`;
+    console.error("Error loading reports:", err);
+  }
+}
 
-                html += "</tbody></table>";
-                container.innerHTML = html;
-              } catch (err) {
-                container.innerHTML = \`<p>Error loading reports: \${err.message}</p>\`;
-                console.error("Error loading reports:", err);
-              }
-            }
-
-            loadReports();
-          <\/script>
-        </body>
-        </html>
-      `;
+loadReports();
+<\/script></body></html>`;
 
       const newWindow = window.open();
       newWindow.document.write(reportsHTML);
@@ -302,9 +215,7 @@
 
     window.addEventListener('load', () => {
       loadPageList();
-
-      const myReportsBtn = document.getElementById('myReportsBtn');
-      myReportsBtn.onclick = showMyReports;
+      document.getElementById('myReportsBtn').onclick = showMyReports;
     });
   </script>
   <style>
