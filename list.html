@@ -5,7 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     // Firebase config
     const firebaseConfig = {
@@ -24,6 +24,7 @@
 
     async function loadPageList() {
       const pageList = document.getElementById("pageList");
+      pageList.innerHTML = "Loading pages...";
 
       try {
         const q = query(collection(db, "pages"), orderBy("createdAt", "desc"));
@@ -34,18 +35,108 @@
           return;
         }
 
-        snapshot.forEach(doc => {
-          const data = doc.data();
+        pageList.innerHTML = "";
+
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
           const id = data.pageID;
+
+          // Container div for each page entry
+          const entry = document.createElement("div");
+          entry.className = "page-entry";
+
+          // Link to the page
           const link = document.createElement("a");
           link.href = `pagecreation#${id}`;
           link.textContent = id;
-          link.style.display = "block";
-          pageList.appendChild(link);
+          link.target = "_blank";
+
+          // Report button
+          const reportBtn = document.createElement("button");
+          reportBtn.textContent = "Report";
+          reportBtn.onclick = () => openReportWindow(id);
+
+          entry.appendChild(link);
+          entry.appendChild(reportBtn);
+          pageList.appendChild(entry);
         });
       } catch (error) {
         pageList.innerHTML = `<p>Error: ${error.message}</p>`;
       }
+    }
+
+    // Opens a new tab with the report form for a specific page ID
+    function openReportWindow(pageID) {
+      const reportHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Report Page: ${pageID}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; max-width: 500px; margin: auto; }
+            textarea { width: 100%; height: 120px; margin-bottom: 20px; font-size: 16px; }
+            button { padding: 10px 20px; margin-right: 10px; font-size: 16px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <h2>Report Page: ${pageID}</h2>
+          <label for="reason">Report reason:</label><br>
+          <textarea id="reason" placeholder="Enter reason here..."></textarea><br>
+          <button id="sendBtn">Send</button>
+          <button id="cancelBtn">Cancel</button>
+          <p id="status" style="color: green;"></p>
+
+          <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+            import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+            const firebaseConfig = {
+              apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
+              authDomain: "applelogin-290fb.firebaseapp.com",
+              projectId: "applelogin-290fb",
+              storageBucket: "applelogin-290fb.firebasestorage.app",
+              messagingSenderId: "399647107073",
+              appId: "1:399647107073:web:0e56c01ed4f931a3167800",
+              measurementId: "G-R9H9V909MS"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            const pageID = "${pageID}";
+
+            document.getElementById('cancelBtn').onclick = () => {
+              window.close();
+            };
+
+            document.getElementById('sendBtn').onclick = async () => {
+              const reason = document.getElementById('reason').value.trim();
+              const statusEl = document.getElementById('status');
+              if (!reason) {
+                alert('Please enter a reason to report.');
+                return;
+              }
+              try {
+                await addDoc(collection(db, "reports"), {
+                  pageID,
+                  reason,
+                  reportedAt: new Date().toISOString()
+                });
+                statusEl.textContent = "Report sent successfully!";
+                setTimeout(() => window.close(), 1500);
+              } catch (err) {
+                alert('Error sending report: ' + err.message);
+              }
+            };
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      // Open a new tab with the report form
+      const newWindow = window.open();
+      newWindow.document.write(reportHTML);
+      newWindow.document.close();
     }
 
     window.addEventListener('load', loadPageList);
@@ -62,16 +153,34 @@
       margin-bottom: 30px;
     }
 
-    #pageList a {
-      display: block;
-      margin: 8px 0;
+    .page-entry {
+      margin: 10px auto;
+      width: 90%;
+      max-width: 500px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      padding: 8px 0;
+    }
+
+    .page-entry a {
       font-size: 18px;
       color: #007bff;
       text-decoration: none;
+      flex-grow: 1;
+      text-align: left;
     }
 
-    #pageList a:hover {
+    .page-entry a:hover {
       text-decoration: underline;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 10px;
     }
   </style>
 </head>
