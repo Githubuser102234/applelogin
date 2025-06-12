@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Public Page List</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
+      authDomain: "applelogin-290fb.firebaseapp.com",
+      projectId: "applelogin-290fb",
+      storageBucket: "applelogin-290fb.firebasestorage.app",
+      messagingSenderId: "399647107073",
+      appId: "1:399647107073:web:0e56c01ed4f931a3167800",
+      measurementId: "G-R9H9V909MS"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getFirestore(app);
+
+    async function loadPageList() {
+      const pageList = document.getElementById("pageList");
+
+      try {
+        const q = query(collection(db, "pages"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          pageList.innerHTML = "<p>No pages found.</p>";
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const id = data.pageID;
+          const link = document.createElement("a");
+          link.href = `pagecreation#${id}`;
+          link.textContent = id;
+          link.style.display = "block";
+          pageList.appendChild(link);
+        });
+      } catch (error) {
+        pageList.innerHTML = `<p>Error: ${error.message}</p>`;
+      }
+    }
+
+    window.addEventListener('load', loadPageList);
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+    }
+
+    #pageList a {
+      display: block;
+      margin: 8px 0;
+      font-size: 18px;
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    #pageList a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Public Pages</h1>
+  <div id="pageList">
+    <p>Loading pages...</p>
+  </div>
+</body>
+</html>
