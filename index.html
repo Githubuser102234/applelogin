@@ -76,7 +76,6 @@
     }, 5000);
 
     appleBtn.addEventListener('click', async () => {
-      // Show loader, hide button
       loader.style.display = 'block';
       statusText.textContent = 'Authenticating...';
       appleBtn.style.display = 'none';
@@ -91,9 +90,12 @@
       try {
         const credential = await navigator.credentials.get({
           publicKey: {
-            challenge: new Uint8Array(32), // from server in real app
+            challenge: new Uint8Array(32), // should come from server in real use
             timeout: 60000,
-            userVerification: "required", // triggers Face ID
+            userVerification: "required",
+            authenticatorSelection: {
+              authenticatorAttachment: "platform"  // 🔐 ensures it stays on the same device
+            },
             allowCredentials: []
           }
         });
@@ -123,11 +125,9 @@
       lastTouchEnd = now;
     }, false);
 
-    // Attempt to lock orientation to portrait if supported
+    // Lock to portrait
     if (window.screen.orientation && window.screen.orientation.lock) {
-      window.screen.orientation.lock('portrait').catch(() => {
-        // silently fail if not supported
-      });
+      window.screen.orientation.lock('portrait').catch(() => {});
     }
   </script>
 </body>
