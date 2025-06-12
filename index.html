@@ -30,6 +30,7 @@
       width: 80px;
       height: 80px;
       animation: spin 1s linear infinite;
+      display: none;
     }
 
     @keyframes spin {
@@ -68,6 +69,7 @@
     const loader = document.getElementById('loader');
     const appleBtn = document.getElementById('appleBtn');
 
+    // Initial timeout to show Apple button
     setTimeout(() => {
       loader.style.display = 'none';
       statusText.textContent = '';
@@ -75,15 +77,22 @@
     }, 5000);
 
     appleBtn.addEventListener('click', async () => {
+      // Show loader, hide button
+      loader.style.display = 'block';
+      statusText.textContent = 'Authenticating...';
+      appleBtn.style.display = 'none';
+
       if (!window.PublicKeyCredential) {
-        alert("Your browser doesn't support WebAuthn.");
+        statusText.textContent = "Your browser doesn't support WebAuthn.";
+        loader.style.display = 'none';
+        appleBtn.style.display = 'block';
         return;
       }
 
       try {
         const credential = await navigator.credentials.get({
           publicKey: {
-            challenge: new Uint8Array(32), // normally comes from your server
+            challenge: new Uint8Array(32), // should come from server
             timeout: 60000,
             userVerification: "required", // triggers Face ID
             allowCredentials: []
@@ -92,12 +101,16 @@
 
         if (credential) {
           statusText.textContent = "Face ID verified!";
-          appleBtn.style.display = 'none';
+          loader.style.display = 'none';
         } else {
           statusText.textContent = "Verification failed.";
+          loader.style.display = 'none';
+          appleBtn.style.display = 'block';
         }
       } catch (err) {
-        statusText.textContent = "Face ID canceled or unavailable.";
+        statusText.textContent = "";
+        loader.style.display = 'none';
+        appleBtn.style.display = 'block';
       }
     });
 
