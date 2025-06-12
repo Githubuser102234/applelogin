@@ -151,7 +151,7 @@
   <div id="chat-messages"></div>
   <div id="chat-input">
     <input type="text" id="message-input" placeholder="Type a message…" />
-    <button onclick="sendMessage()">Send</button>
+    <button id="send-btn">Send</button>
   </div>
 </div>
 
@@ -186,6 +186,7 @@
   const chatUI = document.getElementById('chat-ui');
   const messagesDiv = document.getElementById('chat-messages');
   const input = document.getElementById('message-input');
+  const sendBtn = document.getElementById('send-btn');
 
   let userName = localStorage.getItem('supportChatUserName') || '';
 
@@ -234,6 +235,14 @@
   function handleHashChange() {
     const isChat = location.hash.startsWith("#chat-");
     if (isChat) {
+      if (!userName) {
+        // If somehow hash changed to chat but no username, reset to start prompt:
+        location.hash = "";
+        openBtn.style.display = "none";
+        namePrompt.style.display = "block";
+        chatUI.style.display = "none";
+        return;
+      }
       openBtn.style.display = "none";
       namePrompt.style.display = "none";
       chatUI.style.display = "flex";
@@ -276,6 +285,8 @@
 
     input.value = "";
   }
+
+  sendBtn.addEventListener("click", sendMessage);
 
   input.addEventListener("keypress", e => {
     if (e.key === "Enter") sendMessage();
