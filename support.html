@@ -5,40 +5,29 @@
   <title>Support Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     html, body {
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       font-family: Arial, sans-serif;
-      height: 100%;
-      width: 100%;
+      height: 100%; width: 100%;
       background: #f5f5f5;
     }
-
     #open-chat-btn {
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       padding: 15px 25px;
       font-size: 18px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 10px;
+      background: #007bff; color: white;
+      border: none; border-radius: 10px;
       cursor: pointer;
     }
-
     #chat-ui {
       display: none;
       flex-direction: column;
       height: 100vh;
       width: 100vw;
     }
-
     #chat-header {
       background: #007bff;
       color: white;
@@ -48,7 +37,6 @@
       justify-content: space-between;
       align-items: center;
     }
-
     #close-chat-btn {
       background: transparent;
       border: none;
@@ -58,36 +46,30 @@
       cursor: pointer;
       padding: 0 8px;
     }
-
     #chat-messages {
       flex: 1;
       padding: 12px;
       overflow-y: auto;
       background: #ffffff;
     }
-
     .message {
       margin: 10px 0;
       max-width: 80%;
       word-wrap: break-word;
     }
-
     .user {
       text-align: right;
       color: #007bff;
     }
-
     .support {
       text-align: left;
       color: #28a745;
     }
-
     #chat-input {
       display: flex;
       border-top: 1px solid #ccc;
       background: #f9f9f9;
     }
-
     #chat-input input {
       flex: 1;
       padding: 15px;
@@ -95,7 +77,6 @@
       border: none;
       outline: none;
     }
-
     #chat-input button {
       padding: 15px 20px;
       background: #007bff;
@@ -104,7 +85,6 @@
       cursor: pointer;
       font-size: 16px;
     }
-
     #chat-input button:active {
       background: #0056b3;
     }
@@ -131,27 +111,25 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
   import {
-    getFirestore,
-    collection,
-    addDoc,
-    onSnapshot,
-    serverTimestamp,
-    query,
-    orderBy
-  } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    getDatabase,
+    ref,
+    push,
+    onChildAdded
+  } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAmeSusVfOb0F7vq187qVMhaL_D6zzOee4",
     authDomain: "appleloginsupport.firebaseapp.com",
     projectId: "appleloginsupport",
-    storageBucket: "appleloginsupport.firebasestorage.app",
+    databaseURL: "https://appleloginsupport-default-rtdb.firebaseio.com",
+    storageBucket: "appleloginsupport.appspot.com",
     messagingSenderId: "224388969106",
     appId: "1:224388969106:web:73521e4394a9f049b72c4b",
     measurementId: "G-E07HPYELC4"
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  const db = getDatabase(app);
 
   const openBtn = document.getElementById('open-chat-btn');
   const closeBtn = document.getElementById('close-chat-btn');
@@ -164,13 +142,13 @@
   }
 
   openBtn.addEventListener("click", () => {
-    location.hash = generateHash();
+    if (!location.hash.startsWith("#chat-")) {
+      location.hash = generateHash();
+    }
   });
 
   closeBtn.addEventListener("click", () => {
     location.hash = "";
-    chatUI.style.display = "none";
-    openBtn.style.display = "block";
   });
 
   function handleHashChange() {
@@ -186,18 +164,15 @@
   }
 
   function loadChat(chatId) {
-    const ref = collection(db, `supportChat-${chatId}`);
-    const q = query(ref, orderBy("createdAt"));
+    const chatRef = ref(db, `supportChats/${chatId}`);
+    messagesDiv.innerHTML = "";
 
-    onSnapshot(q, (snapshot) => {
-      messagesDiv.innerHTML = "";
-      snapshot.forEach(doc => {
-        const msg = doc.data();
-        const div = document.createElement("div");
-        div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
-        div.textContent = `${msg.sender === "user" ? "You" : "Support"}: ${msg.text}`;
-        messagesDiv.appendChild(div);
-      });
+    onChildAdded(chatRef, (snapshot) => {
+      const msg = snapshot.val();
+      const div = document.createElement("div");
+      div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
+      div.textContent = `${msg.sender === "user" ? "You" : "Support"}: ${msg.text}`;
+      messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
   }
@@ -207,10 +182,11 @@
     if (!text || !location.hash.startsWith("#chat-")) return;
 
     const chatId = location.hash.substring(1);
-    await addDoc(collection(db, `supportChat-${chatId}`), {
+    const chatRef = ref(db, `supportChats/${chatId}`);
+    await push(chatRef, {
       text,
       sender: "user",
-      createdAt: serverTimestamp()
+      timestamp: Date.now()
     });
 
     input.value = "";
