@@ -40,8 +40,8 @@
           createdAt: new Date().toISOString(),
           pageID: id
         });
-        // Redirect with hash URL
-        window.location.href = `/#${id}`;
+        // Redirect using current path to preserve GitHub Pages subdirectory
+        window.location.href = `${window.location.pathname}#${id}`;
       } catch (error) {
         alert("Error creating page: " + error.message);
       }
@@ -49,8 +49,10 @@
 
     async function loadPageFromHash() {
       const hash = window.location.hash.slice(1);
+      const pageContent = document.getElementById('pageContent');
+
       if (!hash) {
-        document.getElementById('pageContent').textContent = 'Click "Create Page" to start.';
+        pageContent.textContent = 'Click "Create Page" to start.';
         return;
       }
 
@@ -59,11 +61,11 @@
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        document.getElementById('pageContent').innerHTML =
+        pageContent.innerHTML =
           `<h2>Page ID: ${data.pageID}</h2>
            <p>Created At: ${new Date(data.createdAt).toLocaleString()}</p>`;
       } else {
-        document.getElementById('pageContent').textContent = 'Page not found.';
+        pageContent.textContent = 'Page not found.';
       }
     }
 
