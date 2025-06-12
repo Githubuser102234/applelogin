@@ -9,6 +9,9 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #f5f5f5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     #session-list, #chat-ui {
@@ -31,36 +34,74 @@
       justify-content: space-between;
     }
 
+    /* Session list items */
     .session-item {
-      padding: 15px;
+      background: white;
+      padding: 15px 15px 15px 20px;
       border-bottom: 1px solid #ddd;
       cursor: pointer;
-      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+      font-size: 16px;
     }
 
+    .session-item:hover {
+      background: #e9f0ff;
+    }
+
+    .delete-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+    .delete-btn:hover {
+      background: #a71d2a;
+    }
+
+    /* Chat Messages */
     #chat-messages {
       flex: 1;
       padding: 12px;
       overflow-y: auto;
-      background: white;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
     }
 
     .message {
       margin: 10px 0;
       max-width: 80%;
       word-wrap: break-word;
+      padding: 12px 18px;
+      border-radius: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 15px;
+      line-height: 1.3;
     }
 
     .user {
-      text-align: left;
-      color: #007bff;
+      align-self: flex-start;
+      background-color: #d4edda; /* green tinted */
+      color: #28a745;
+      border-bottom-left-radius: 0;
     }
 
     .support {
-      text-align: right;
-      color: #28a745;
+      align-self: flex-end;
+      background-color: #cce5ff; /* blue tinted */
+      color: #007bff;
+      border-bottom-right-radius: 0;
     }
 
+    /* Chat Input */
     #chat-input {
       display: flex;
       border-top: 1px solid #ccc;
@@ -72,6 +113,7 @@
       padding: 15px;
       font-size: 16px;
       border: none;
+      outline: none;
     }
 
     #chat-input button {
@@ -80,13 +122,24 @@
       color: white;
       border: none;
       font-size: 16px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
     }
 
+    #chat-input button:active {
+      background: #0056b3;
+    }
+
+    /* Back button */
     #back-btn {
       background: transparent;
       border: none;
       color: white;
-      font-size: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      user-select: none;
+      padding: 0 8px;
     }
   </style>
 </head>
@@ -103,13 +156,13 @@
 <!-- Chat UI -->
 <div id="chat-ui">
   <header>
-    <button id="back-btn">&larr;</button>
+    <button id="back-btn" title="Back to chats">&larr;</button>
     <span id="chat-id-title">Chat</span>
   </header>
   <div id="chat-messages"></div>
   <div id="chat-input">
     <input type="text" id="message-input" placeholder="Type a message..." />
-    <button onclick="sendMessage()">Send</button>
+    <button id="send-btn">Send</button>
   </div>
 </div>
 
@@ -121,7 +174,7 @@
     push,
     onChildAdded,
     get,
-    child
+    remove,
   } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
   const firebaseConfig = {
@@ -145,8 +198,10 @@
   const chatIdTitle = document.getElementById("chat-id-title");
   const chatMessages = document.getElementById("chat-messages");
   const input = document.getElementById("message-input");
+  const sendBtn = document.getElementById("send-btn");
 
   let currentChatId = "";
+  let unsubscribeFn = null; // to hold onChildAdded unsubscribe function
 
   async function listChats() {
     const snapshot = await get(ref(db, "supportChats"));
@@ -156,8 +211,31 @@
       Object.keys(chats).forEach(chatId => {
         const div = document.createElement("div");
         div.className = "session-item";
-        div.textContent = chatId;
-        div.onclick = () => openChat(chatId);
+
+        // Chat ID clickable text
+        const chatLabel = document.createElement("span");
+        chatLabel.textContent = chatId;
+        chatLabel.style.flex = "1";
+        chatLabel.style.cursor = "pointer";
+        chatLabel.onclick = () => openChat(chatId);
+
+        // Delete button
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete Chat";
+        deleteBtn.className = "delete-btn";
+        deleteBtn.onclick = async (e) => {
+          e.stopPropagation();
+          if (confirm(`Are you sure you want to delete chat "${chatId}"? This action cannot be undone.`)) {
+            await remove(ref(db, `supportChats/${chatId}`));
+            if (currentChatId === chatId) {
+              closeChat();
+            }
+            listChats();
+          }
+        };
+
+        div.appendChild(chatLabel);
+        div.appendChild(deleteBtn);
         sessionsContainer.appendChild(div);
       });
     } else {
@@ -172,15 +250,48 @@
     chatIdTitle.textContent = chatId;
     chatMessages.innerHTML = "";
 
+    // Clear previous listeners if any
+    if (unsubscribeFn) {
+      unsubscribeFn();
+      unsubscribeFn = null;
+    }
+
     const messagesRef = ref(db, `supportChats/${chatId}`);
+
+    // Firebase Realtime Database doesn't provide unsubscribe for onChildAdded
+    // So to avoid duplicated listeners on re-open, we just clear chatMessages and do not add new listeners repeatedly.
+
+    // Instead we use a hack: detach old listeners by cloning messagesRef
+    // But here we will just keep it simple: no unsubscribe, but prevent adding multiple listeners by only adding once per open.
+
+    // We'll do a simple approach: remove all children and re-add them on load using get() for initial batch, then onChildAdded for new messages
+
+    // Load initial messages
+    get(messagesRef).then(snapshot => {
+      chatMessages.innerHTML = "";
+      if (snapshot.exists()) {
+        const messages = snapshot.val();
+        Object.values(messages).forEach(msg => {
+          addMessage(msg);
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    });
+
+    // Listen for new messages
     onChildAdded(messagesRef, (snapshot) => {
       const msg = snapshot.val();
-      const div = document.createElement("div");
-      div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
-      div.textContent = `${msg.sender === "user" ? "User" : "You"}: ${msg.text}`;
-      chatMessages.appendChild(div);
+      addMessage(msg);
       chatMessages.scrollTop = chatMessages.scrollHeight;
     });
+  }
+
+  function addMessage(msg) {
+    const div = document.createElement("div");
+    div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
+    const senderName = msg.sender === "user" ? (msg.name || "User") : "You";
+    div.textContent = `${senderName}: ${msg.text}`;
+    chatMessages.appendChild(div);
   }
 
   async function sendMessage() {
@@ -200,12 +311,20 @@
     if (e.key === "Enter") sendMessage();
   });
 
+  sendBtn.addEventListener("click", sendMessage);
+
   backBtn.addEventListener("click", () => {
+    closeChat();
+  });
+
+  function closeChat() {
+    currentChatId = "";
     chatUI.classList.remove("active");
     sessionListEl.classList.add("active");
     chatMessages.innerHTML = "";
     input.value = "";
-  });
+    listChats();
+  }
 
   window.addEventListener("load", listChats);
 </script>
