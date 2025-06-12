@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Admin Panel</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+    }
+
+    #session-list, #chat-ui {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #session-list.active, #chat-ui.active {
+      display: flex;
+    }
+
+    header {
+      background: #007bff;
+      color: white;
+      padding: 16px;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .session-item {
+      padding: 15px;
+      border-bottom: 1px solid #ddd;
+      cursor: pointer;
+      background: white;
+    }
+
+    #chat-messages {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+      background: white;
+    }
+
+    .message {
+      margin: 10px 0;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    .user {
+      text-align: left;
+      color: #007bff;
+    }
+
+    .support {
+      text-align: right;
+      color: #28a745;
+    }
+
+    #chat-input {
+      display: flex;
+      border-top: 1px solid #ccc;
+      background: #f9f9f9;
+    }
+
+    #chat-input input {
+      flex: 1;
+      padding: 15px;
+      font-size: 16px;
+      border: none;
+    }
+
+    #chat-input button {
+      padding: 15px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      font-size: 16px;
+    }
+
+    #back-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Chat Session List -->
+<div id="session-list" class="active">
+  <header>
+    Active Chats
+  </header>
+  <div id="sessions"></div>
+</div>
+
+<!-- Chat UI -->
+<div id="chat-ui">
+  <header>
+    <button id="back-btn">&larr;</button>
+    <span id="chat-id-title">Chat</span>
+  </header>
+  <div id="chat-messages"></div>
+  <div id="chat-input">
+    <input type="text" id="message-input" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    getDocs,
+    onSnapshot,
+    addDoc,
+    query,
+    orderBy,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmeSusVfOb0F7vq187qVMhaL_D6zzOee4",
+    authDomain: "appleloginsupport.firebaseapp.com",
+    projectId: "appleloginsupport",
+    storageBucket: "appleloginsupport.firebasestorage.app",
+    messagingSenderId: "224388969106",
+    appId: "1:224388969106:web:73521e4394a9f049b72c4b",
+    measurementId: "G-E07HPYELC4"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const sessionListEl = document.getElementById("session-list");
+  const sessionsContainer = document.getElementById("sessions");
+  const chatUI = document.getElementById("chat-ui");
+  const backBtn = document.getElementById("back-btn");
+  const chatIdTitle = document.getElementById("chat-id-title");
+  const chatMessages = document.getElementById("chat-messages");
+  const input = document.getElementById("message-input");
+
+  let currentChatId = "";
+
+  // List all supportChat-XXXXX collections
+  async function listChats() {
+    const collections = await getDocs(collection(db, "__metadata__/default"));
+    sessionsContainer.innerHTML = '';
+
+    // Fallback: check all known chats manually
+    const queryURL = `https://firestore.googleapis.com/v1/projects/appleloginsupport/databases/(default)/documents`;
+    fetch(queryURL).then(res => res.json()).then(data => {
+      // simulate manual filtering
+    });
+
+    // Fallback: simulate known format
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith("supportChat-")) {
+        const div = document.createElement("div");
+        div.className = "session-item";
+        div.textContent = key.replace("supportChat-", "");
+        div.onclick = () => openChat(key);
+        sessionsContainer.appendChild(div);
+      }
+    }
+  }
+
+  function openChat(chatKey) {
+    currentChatId = chatKey;
+    sessionListEl.classList.remove("active");
+    chatUI.classList.add("active");
+    chatIdTitle.textContent = chatKey.replace("supportChat-", "Chat ");
+
+    const ref = collection(db, chatKey);
+    const q = query(ref, orderBy("createdAt"));
+
+    onSnapshot(q, (snapshot) => {
+      chatMessages.innerHTML = "";
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const div = document.createElement("div");
+        div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
+        div.textContent = `${msg.sender === "user" ? "User" : "You"}: ${msg.text}`;
+        chatMessages.appendChild(div);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  }
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text || !currentChatId) return;
+
+    await addDoc(collection(db, currentChatId), {
+      text,
+      sender: "support",
+      createdAt: serverTimestamp()
+    });
+
+    input.value = "";
+  }
+
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  backBtn.addEventListener("click", () => {
+    chatUI.classList.remove("active");
+    sessionListEl.classList.add("active");
+    chatMessages.innerHTML = "";
+    input.value = "";
+  });
+
+  window.addEventListener("load", listChats);
+</script>
+
+</body>
+</html>
