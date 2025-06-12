@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Support Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
@@ -20,6 +20,37 @@
       font-size: 18px;
       background: #007bff; color: white;
       border: none; border-radius: 10px;
+      cursor: pointer;
+    }
+    #name-prompt {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      width: 90%;
+      max-width: 320px;
+      text-align: center;
+    }
+    #name-prompt input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      outline: none;
+    }
+    #name-prompt button {
+      padding: 12px 25px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
       cursor: pointer;
     }
     #chat-ui {
@@ -51,19 +82,28 @@
       padding: 12px;
       overflow-y: auto;
       background: #ffffff;
+      display: flex;
+      flex-direction: column;
     }
     .message {
       margin: 10px 0;
       max-width: 80%;
       word-wrap: break-word;
+      padding: 12px 18px;
+      border-radius: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     .user {
-      text-align: right;
+      align-self: flex-end;
+      background-color: #cce5ff; /* lighter #007bff */
       color: #007bff;
+      border-bottom-right-radius: 0;
     }
     .support {
-      text-align: left;
+      align-self: flex-start;
+      background-color: #d4edda; /* lighter #28a745 */
       color: #28a745;
+      border-bottom-left-radius: 0;
     }
     #chat-input {
       display: flex;
@@ -94,6 +134,13 @@
 
 <!-- Open Chat Button -->
 <button id="open-chat-btn">Open Support Chat</button>
+
+<!-- Name Prompt -->
+<div id="name-prompt">
+  <h2>Enter Your Name</h2>
+  <input type="text" id="name-input" placeholder="Your name" />
+  <button id="name-submit">Start Chat</button>
+</div>
 
 <!-- Fullscreen Chat UI -->
 <div id="chat-ui">
@@ -132,20 +179,53 @@
   const db = getDatabase(app);
 
   const openBtn = document.getElementById('open-chat-btn');
+  const namePrompt = document.getElementById('name-prompt');
+  const nameInput = document.getElementById('name-input');
+  const nameSubmit = document.getElementById('name-submit');
   const closeBtn = document.getElementById('close-chat-btn');
   const chatUI = document.getElementById('chat-ui');
   const messagesDiv = document.getElementById('chat-messages');
   const input = document.getElementById('message-input');
+
+  let userName = localStorage.getItem('supportChatUserName') || '';
 
   function generateHash() {
     return 'chat-' + Math.random().toString(36).substring(2, 8);
   }
 
   openBtn.addEventListener("click", () => {
+    if (userName) {
+      openChat();
+    } else {
+      openBtn.style.display = "none";
+      namePrompt.style.display = "block";
+      nameInput.focus();
+    }
+  });
+
+  nameSubmit.addEventListener("click", () => {
+    const nameVal = nameInput.value.trim();
+    if (nameVal) {
+      userName = nameVal;
+      localStorage.setItem('supportChatUserName', userName);
+      namePrompt.style.display = "none";
+      openChat();
+    } else {
+      alert("Please enter your name.");
+    }
+  });
+
+  nameInput.addEventListener("keypress", e => {
+    if (e.key === "Enter") {
+      nameSubmit.click();
+    }
+  });
+
+  function openChat() {
     if (!location.hash.startsWith("#chat-")) {
       location.hash = generateHash();
     }
-  });
+  }
 
   closeBtn.addEventListener("click", () => {
     location.hash = "";
@@ -155,11 +235,15 @@
     const isChat = location.hash.startsWith("#chat-");
     if (isChat) {
       openBtn.style.display = "none";
+      namePrompt.style.display = "none";
       chatUI.style.display = "flex";
       loadChat(location.hash.substring(1));
     } else {
       openBtn.style.display = "block";
+      namePrompt.style.display = "none";
       chatUI.style.display = "none";
+      messagesDiv.innerHTML = "";
+      input.value = "";
     }
   }
 
@@ -171,7 +255,7 @@
       const msg = snapshot.val();
       const div = document.createElement("div");
       div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
-      div.textContent = `${msg.sender === "user" ? "You" : "Support"}: ${msg.text}`;
+      div.textContent = `${msg.sender === "user" ? userName : "Support"}: ${msg.text}`;
       messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
@@ -186,6 +270,7 @@
     await push(chatRef, {
       text,
       sender: "user",
+      name: userName,
       timestamp: Date.now()
     });
 
