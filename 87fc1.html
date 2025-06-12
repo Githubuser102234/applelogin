@@ -89,8 +89,7 @@
       deleteDoc,
       doc,
       query,
-      orderBy,
-      where
+      orderBy
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -165,13 +164,12 @@
       reportPanel.innerHTML = "<p>Loading reports...</p>";
 
       try {
-        // Try querying with orderBy createdAt
+        // Try query ordered by createdAt descending
         let q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
         let snapshot = await getDocs(q);
 
-        // If no docs or error due to missing createdAt, fallback:
         if (snapshot.empty) {
-          // fallback query without orderBy
+          // fallback: no order query
           q = collection(db, "reports");
           snapshot = await getDocs(q);
         }
@@ -191,13 +189,13 @@
           item.className = "report-entry";
 
           const content = document.createElement("span");
-          content.textContent = `From: ${data.sender || "unknown"} | Target: ${data.pageID || "?"} | Reason: ${data.reason || "none"}`;
+          content.textContent = `Report ID: ${reportId} | Target: ${data.pageID || "?"} | Reason: ${data.reason || "none"}`;
 
           // Delete Report Button
           const delReportBtn = document.createElement("button");
           delReportBtn.textContent = "Delete Report";
           delReportBtn.onclick = async () => {
-            const confirmDelReport = confirm(`Delete this report from "${data.sender || "unknown"}"?`);
+            const confirmDelReport = confirm(`Delete report "${reportId}"?`);
             if (confirmDelReport) {
               await deleteDoc(doc(db, "reports", reportId));
               item.remove();
