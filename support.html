@@ -3,29 +3,136 @@
 <head>
   <meta charset="UTF-8" />
   <title>Support Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* ... your existing styles ... */
-
-    /* Added styles for closed chat message */
-    #chat-closed-message {
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: Arial, sans-serif;
+      height: 100%; width: 100%;
+      background: #f5f5f5;
+    }
+    #open-chat-btn {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 15px 25px;
+      font-size: 18px;
+      background: #007bff; color: white;
+      border: none; border-radius: 10px;
+      cursor: pointer;
+    }
+    #name-prompt {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      width: 90%;
+      max-width: 320px;
+      text-align: center;
+    }
+    #name-prompt input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      outline: none;
+    }
+    #name-prompt button {
+      padding: 12px 25px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #chat-ui {
       display: none;
       flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+    #chat-header {
+      background: #007bff;
+      color: white;
+      padding: 16px;
+      font-size: 20px;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
+    }
+    #close-chat-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 8px;
+    }
+    #chat-messages {
       flex: 1;
-      padding: 20px;
+      padding: 12px;
+      overflow-y: auto;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+    }
+    .message {
+      margin: 10px 0;
+      max-width: 80%;
+      word-wrap: break-word;
+      padding: 12px 18px;
+      border-radius: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .user {
+      align-self: flex-end;
+      background-color: #cce5ff; /* lighter #007bff */
+      color: #007bff;
+      border-bottom-right-radius: 0;
+    }
+    .support {
+      align-self: flex-start;
+      background-color: #d4edda; /* lighter #28a745 */
+      color: #28a745;
+      border-bottom-left-radius: 0;
+    }
+    #chat-input {
+      display: flex;
+      border-top: 1px solid #ccc;
+      background: #f9f9f9;
+    }
+    #chat-input input {
+      flex: 1;
+      padding: 15px;
+      font-size: 16px;
+      border: none;
+      outline: none;
+    }
+    #chat-input button {
+      padding: 15px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #chat-input button:active {
+      background: #0056b3;
+    }
+    #closed-msg {
       text-align: center;
-      color: #555;
-    }
-    #chat-closed-message h1 {
-      font-size: 28px;
-      margin-bottom: 8px;
-      color: #d9534f; /* bootstrap danger color */
-    }
-    #chat-closed-message p {
-      font-size: 14px;
       color: #888;
+      padding: 10px;
+      font-style: italic;
     }
   </style>
 </head>
@@ -48,13 +155,6 @@
     <button id="close-chat-btn" title="Close Chat">&times;</button>
   </div>
   <div id="chat-messages"></div>
-
-  <!-- Closed chat message container -->
-  <div id="chat-closed-message">
-    <h1>This chat has been closed</h1>
-    <p>Feel free to open another support chat if needed.</p>
-  </div>
-
   <div id="chat-input">
     <input type="text" id="message-input" placeholder="Type a message…" />
     <button id="send-btn">Send</button>
@@ -68,7 +168,8 @@
     ref,
     push,
     onChildAdded,
-    onValue
+    onValue,
+    off
   } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
   const firebaseConfig = {
@@ -94,11 +195,10 @@
   const messagesDiv = document.getElementById('chat-messages');
   const input = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
-  const closedMsgDiv = document.getElementById('chat-closed-message');
 
   let userName = localStorage.getItem('supportChatUserName') || '';
-  let chatListener = null;
 
+  // Generates a random chat ID
   function generateHash() {
     return 'chat-' + Math.random().toString(36).substring(2, 8);
   }
@@ -156,58 +256,71 @@
       chatUI.style.display = "none";
       messagesDiv.innerHTML = "";
       input.value = "";
-      hideClosedMessage();
-      detachChatListener();
+      removeListeners();
     }
   }
 
-  function detachChatListener() {
-    // If you want to remove listeners to avoid duplication
-    // (onChildAdded returns unsubscribe function only with onValue)
-  }
+  // To hold unsubscribe functions for Firebase listeners
+  let messagesListener = null;
+  let closedListener = null;
 
-  function showClosedMessage() {
-    closedMsgDiv.style.display = "flex";
-    messagesDiv.style.display = "none";
-    input.style.display = "none";
-    sendBtn.style.display = "none";
-  }
-
-  function hideClosedMessage() {
-    closedMsgDiv.style.display = "none";
-    messagesDiv.style.display = "flex";
-    input.style.display = "block";
-    sendBtn.style.display = "block";
+  function removeListeners() {
+    if (messagesListener) {
+      off(ref(db), 'child_added', messagesListener);
+      messagesListener = null;
+    }
+    if (closedListener) {
+      off(ref(db), 'value', closedListener);
+      closedListener = null;
+    }
   }
 
   function loadChat(chatId) {
     messagesDiv.innerHTML = "";
 
-    const chatRef = ref(db, `supportChats/${chatId}`);
+    removeListeners();
 
-    // Listen for chat data changes
-    onValue(chatRef, (snapshot) => {
-      const data = snapshot.val();
+    const messagesRef = ref(db, `supportChats/${chatId}/messages`);
+    const closedRef = ref(db, `supportChats/${chatId}/closed`);
 
-      // If no data or empty object, chat was deleted or closed by admin
-      if (!data || Object.keys(data).length === 0) {
-        // Show closed chat message UI
-        showClosedMessage();
-        messagesDiv.innerHTML = "";
-        return;
+    // Listen for new messages
+    messagesListener = onChildAdded(messagesRef, snapshot => {
+      const msg = snapshot.val();
+      const div = document.createElement("div");
+      div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
+      div.textContent = `${msg.sender === "user" ? userName : "Support"}: ${msg.text}`;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    // Listen for chat closed flag
+    closedListener = onValue(closedRef, snapshot => {
+      const isClosed = snapshot.val();
+      if (isClosed) {
+        // Chat is closed: disable input & hide input bar, show closed message
+        input.disabled = true;
+        sendBtn.disabled = true;
+        input.style.display = "none";
+        sendBtn.style.display = "none";
+
+        if (!document.getElementById('closed-msg')) {
+          const closedMsgDiv = document.createElement("div");
+          closedMsgDiv.id = "closed-msg";
+          closedMsgDiv.textContent = "This chat has been closed";
+          messagesDiv.appendChild(closedMsgDiv);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
       } else {
-        hideClosedMessage();
+        // Chat is open: enable input & show input bar, remove closed message
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.style.display = "block";
+        sendBtn.style.display = "inline-block";
 
-        messagesDiv.innerHTML = "";
-        // Display all messages
-        Object.values(data).forEach(msg => {
-          const div = document.createElement("div");
-          div.className = `message ${msg.sender === "user" ? "user" : "support"}`;
-          div.textContent = `${msg.sender === "user" ? userName : "Support"}: ${msg.text}`;
-          messagesDiv.appendChild(div);
-        });
-
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        const closedMsgDiv = document.getElementById('closed-msg');
+        if (closedMsgDiv) {
+          closedMsgDiv.remove();
+        }
       }
     });
   }
@@ -217,8 +330,9 @@
     if (!text || !location.hash.startsWith("#chat-")) return;
 
     const chatId = location.hash.substring(1);
-    const chatRef = ref(db, `supportChats/${chatId}`);
-    await push(chatRef, {
+    const chatMessagesRef = ref(db, `supportChats/${chatId}/messages`);
+
+    await push(chatMessagesRef, {
       text,
       sender: "user",
       name: userName,
