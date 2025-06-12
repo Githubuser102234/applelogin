@@ -255,4 +255,125 @@
                   return;
                 }
 
-                let html = "<table><thead><tr><
+                let html = "<table><thead><tr><th>Report ID</th><th>Page ID</th><th>Reason</th><th>Status</th></tr></thead><tbody>";
+
+                snapshot.forEach(docSnap => {
+                  const report = docSnap.data();
+                  const id = docSnap.id;
+                  let statusHTML = `<strong>${report.status || 'Report received'}</strong>`;
+                  if (report.status === "No violation" || report.status === "Violation found and action taken") {
+                    if (report.moderatorNote) {
+                      statusHTML += `<div class="moderator-note">Moderator note: ${report.moderatorNote}</div>`;
+                    }
+                  }
+                  html += `
+                    <tr>
+                      <td>${id}</td>
+                      <td>${report.pageID}</td>
+                      <td>${report.reason}</td>
+                      <td>${statusHTML}</td>
+                    </tr>
+                  `;
+                });
+
+                html += "</tbody></table>";
+                container.innerHTML = html;
+              } catch (err) {
+                container.innerHTML = `<p>Error loading reports: ${err.message}</p>`;
+              }
+            }
+
+            loadReports();
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      const newWindow = window.open();
+      newWindow.document.write(reportsHTML);
+      newWindow.document.close();
+    }
+
+    window.addEventListener('load', () => {
+      loadPageList();
+
+      // Create the top-right Reports button
+      const reportsBtn = document.createElement('button');
+      reportsBtn.textContent = "Reports";
+      reportsBtn.id = "reportsBtn";
+      reportsBtn.title = "View your sent reports";
+      reportsBtn.onclick = showMyReports;
+      document.body.appendChild(reportsBtn);
+    });
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+    }
+
+    .page-entry {
+      margin: 10px auto;
+      width: 90%;
+      max-width: 500px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      padding: 8px 0;
+    }
+
+    .page-entry a {
+      font-size: 18px;
+      color: #007bff;
+      text-decoration: none;
+      flex-grow: 1;
+      text-align: left;
+    }
+
+    .page-entry a:hover {
+      text-decoration: underline;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+
+    /* Fixed top-right reports button */
+    #reportsBtn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      padding: 10px 16px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 9999;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: background-color 0.3s ease;
+    }
+    #reportsBtn:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Public Pages</h1>
+  <div id="pageList">
+    <p>Loading pages...</p>
+  </div>
+</body>
+</html>
