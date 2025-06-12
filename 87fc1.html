@@ -29,6 +29,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
     }
 
     .page-entry span, .report-entry span {
@@ -44,6 +45,13 @@
       cursor: pointer;
     }
 
+    select {
+      padding: 6px;
+      font-size: 14px;
+      margin-right: 8px;
+      min-width: 160px;
+    }
+
     #authBox {
       text-align: center;
       margin-top: 50px;
@@ -54,6 +62,21 @@
       font-size: 16px;
       width: 200px;
       margin-right: 10px;
+    }
+
+    .moderator-note {
+      font-style: italic;
+      font-weight: normal;
+      margin-top: 4px;
+      width: 100%;
+      color: #555;
+    }
+
+    .status-label {
+      font-weight: 600;
+      margin-top: 4px;
+      width: 100%;
+      color: #333;
     }
   </style>
 </head>
@@ -89,7 +112,8 @@
       deleteDoc,
       doc,
       query,
-      orderBy
+      orderBy,
+      updateDoc
     } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -164,7 +188,6 @@
       reportPanel.innerHTML = "<p>Loading reports...</p>";
 
       try {
-        // Try query ordered by createdAt descending
         let q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
         let snapshot = await getDocs(q);
 
@@ -188,8 +211,19 @@
           const item = document.createElement("div");
           item.className = "report-entry";
 
+          // Report main info span
           const content = document.createElement("span");
           content.textContent = `Report ID: ${reportId} | Target: ${data.pageID || "?"} | Reason: ${data.reason || "none"}`;
+
+          // Moderator note display
+          const modNoteDisplay = document.createElement("div");
+          modNoteDisplay.className = "moderator-note";
+          modNoteDisplay.textContent = data.moderatorNote ? `Moderator Note: ${data.moderatorNote}` : "No moderator note";
+
+          // Status display
+          const statusDisplay = document.createElement("div");
+          statusDisplay.className = "status-label";
+          statusDisplay.textContent = `Status: ${data.status || "Report received"}`;
 
           // Delete Report Button
           const delReportBtn = document.createElement("button");
@@ -220,9 +254,64 @@
             };
           }
 
+          // Add Custom Moderator Note Button
+          const addModNoteBtn = document.createElement("button");
+          addModNoteBtn.textContent = "Add Custom Moderator Note";
+          addModNoteBtn.onclick = async () => {
+            const currentNote = data.moderatorNote || "";
+            const newNote = prompt("Enter moderator note for this report:", currentNote);
+            if (newNote !== null) {
+              try {
+                await updateDoc(doc(db, "reports", reportId), {
+                  moderatorNote: newNote
+                });
+                data.moderatorNote = newNote;
+                modNoteDisplay.textContent = newNote ? `Moderator Note: ${newNote}` : "No moderator note";
+                alert("Moderator note updated.");
+              } catch (e) {
+                alert(`Error updating note: ${e.message}`);
+              }
+            }
+          };
+
+          // Status dropdown
+          const statusSelect = document.createElement("select");
+          const statuses = ["Report received", "No violation", "Violation Found"];
+          statuses.forEach(status => {
+            const option = document.createElement("option");
+            option.value = status;
+            option.textContent = status;
+            statusSelect.appendChild(option);
+          });
+          statusSelect.value = data.status || "Report received";
+
+          // Update Report Button
+          const updateReportBtn = document.createElement("button");
+          updateReportBtn.textContent = "Update Report";
+          updateReportBtn.onclick = async () => {
+            const selectedStatus = statusSelect.value;
+            try {
+              await updateDoc(doc(db, "reports", reportId), {
+                status: selectedStatus
+              });
+              data.status = selectedStatus;
+              statusDisplay.textContent = `Status: ${selectedStatus}`;
+              alert("Report status updated.");
+            } catch (e) {
+              alert(`Error updating status: ${e.message}`);
+            }
+          };
+
           item.appendChild(content);
           item.appendChild(delReportBtn);
           if (delPageBtn) item.appendChild(delPageBtn);
+          item.appendChild(addModNoteBtn);
+          item.appendChild(statusSelect);
+          item.appendChild(updateReportBtn);
+
+          // Append moderator note and status below as text
+          item.appendChild(modNoteDisplay);
+          item.appendChild(statusDisplay);
 
           reportPanel.appendChild(item);
         });
