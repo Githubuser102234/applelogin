@@ -213,6 +213,7 @@
       openChat();
     } else {
       alert("Please enter your name.");
+      nameInput.focus();
     }
   });
 
@@ -235,18 +236,11 @@
   function handleHashChange() {
     const isChat = location.hash.startsWith("#chat-");
     if (isChat) {
-      if (!userName) {
-        // If somehow hash changed to chat but no username, reset to start prompt:
-        location.hash = "";
-        openBtn.style.display = "none";
-        namePrompt.style.display = "block";
-        chatUI.style.display = "none";
-        return;
-      }
       openBtn.style.display = "none";
       namePrompt.style.display = "none";
       chatUI.style.display = "flex";
       loadChat(location.hash.substring(1));
+      input.focus();
     } else {
       openBtn.style.display = "block";
       namePrompt.style.display = "none";
