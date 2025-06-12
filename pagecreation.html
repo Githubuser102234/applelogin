@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Page</title>
+  <script type="module">
+    // Firebase SDK imports from CDN v11.9.1
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
+      authDomain: "applelogin-290fb.firebaseapp.com",
+      projectId: "applelogin-290fb",
+      storageBucket: "applelogin-290fb.firebasestorage.app",
+      messagingSenderId: "399647107073",
+      appId: "1:399647107073:web:0e56c01ed4f931a3167800",
+      measurementId: "G-R9H9V909MS"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getFirestore(app);
+
+    // Generate random page ID
+    function generateRandomID(length = 7) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    }
+
+    // Create page: save to Firestore and redirect
+    async function createPage() {
+      const id = generateRandomID();
+      const pageRef = doc(db, "pages", id);
+
+      try {
+        await setDoc(pageRef, {
+          createdAt: new Date().toISOString(),
+          pageID: id
+        });
+        // Redirect after saving
+        window.location.href = `/${id}`;
+      } catch (error) {
+        alert("Error creating page: " + error.message);
+      }
+    }
+
+    // Expose createPage globally for button
+    window.createPage = createPage;
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Create a Random Page</h1>
+  <button onclick="createPage()">Create Page</button>
+</body>
+</html>
