@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Create Page</title>
+  <title>Create Page with Hash Routing</title>
   <script type="module">
-    // Firebase SDK imports from CDN v11.9.1
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-    // Your Firebase config
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
       authDomain: "applelogin-290fb.firebaseapp.com",
@@ -19,12 +18,10 @@
       measurementId: "G-R9H9V909MS"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
 
-    // Generate random page ID
     function generateRandomID(length = 7) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       let result = '';
@@ -34,7 +31,6 @@
       return result;
     }
 
-    // Create page: save to Firestore and redirect
     async function createPage() {
       const id = generateRandomID();
       const pageRef = doc(db, "pages", id);
@@ -44,22 +40,43 @@
           createdAt: new Date().toISOString(),
           pageID: id
         });
-        // Redirect after saving
-        window.location.href = `/${id}`;
+        // Redirect with hash URL
+        window.location.href = `/#${id}`;
       } catch (error) {
         alert("Error creating page: " + error.message);
       }
     }
 
-    // Expose createPage globally for button
+    async function loadPageFromHash() {
+      const hash = window.location.hash.slice(1);
+      if (!hash) {
+        document.getElementById('pageContent').textContent = 'Click "Create Page" to start.';
+        return;
+      }
+
+      const pageRef = doc(db, "pages", hash);
+      const docSnap = await getDoc(pageRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        document.getElementById('pageContent').innerHTML =
+          `<h2>Page ID: ${data.pageID}</h2>
+           <p>Created At: ${new Date(data.createdAt).toLocaleString()}</p>`;
+      } else {
+        document.getElementById('pageContent').textContent = 'Page not found.';
+      }
+    }
+
     window.createPage = createPage;
+    window.addEventListener('load', loadPageFromHash);
+    window.addEventListener('hashchange', loadPageFromHash);
   </script>
 
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin-top: 100px;
+      margin-top: 80px;
     }
 
     button {
@@ -75,10 +92,16 @@
     button:hover {
       background-color: #0056b3;
     }
+
+    #pageContent {
+      margin-top: 40px;
+      font-size: 20px;
+    }
   </style>
 </head>
 <body>
   <h1>Create a Random Page</h1>
   <button onclick="createPage()">Create Page</button>
+  <div id="pageContent">Click "Create Page" to start.</div>
 </body>
 </html>
