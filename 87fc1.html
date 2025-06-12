@@ -74,11 +74,143 @@
       }
     }
 
+    async function showReports() {
+      // Open a new tab and write the report list HTML there
+      const reportTab = window.open();
+      reportTab.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Reports List</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 30px;
+              max-width: 700px;
+              margin: auto;
+              background: #f9f9f9;
+            }
+            h1 {
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .report-entry {
+              background: white;
+              border: 1px solid #ccc;
+              padding: 15px;
+              margin-bottom: 15px;
+              border-radius: 5px;
+              word-wrap: break-word;
+            }
+            .report-id {
+              font-weight: bold;
+              color: #555;
+              margin-bottom: 5px;
+            }
+            .report-pageid {
+              color: #007bff;
+              margin-bottom: 8px;
+            }
+            .close-btn {
+              display: block;
+              margin: 20px auto;
+              padding: 10px 25px;
+              font-size: 16px;
+              cursor: pointer;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Reports List</h1>
+          <div id="reportsContainer">
+            <p>Loading reports...</p>
+          </div>
+          <button class="close-btn" onclick="window.close()">Close</button>
+
+          <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+            import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+            const firebaseConfig = {
+              apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
+              authDomain: "applelogin-290fb.firebaseapp.com",
+              projectId: "applelogin-290fb",
+              storageBucket: "applelogin-290fb.firebasestorage.app",
+              messagingSenderId: "399647107073",
+              appId: "1:399647107073:web:0e56c01ed4f931a3167800",
+              measurementId: "G-R9H9V909MS"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            async function loadReports() {
+              const container = document.getElementById("reportsContainer");
+              try {
+                const q = query(collection(db, "reports"), orderBy("reportedAt", "desc"));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                  container.innerHTML = "<p>No reports found.</p>";
+                  return;
+                }
+
+                container.innerHTML = "";
+                snapshot.forEach(docSnap => {
+                  const data = docSnap.data();
+                  const id = docSnap.id;
+                  const pageID = data.pageID || "(unknown)";
+                  const reason = data.reason || "(no reason)";
+
+                  const entry = document.createElement("div");
+                  entry.className = "report-entry";
+
+                  const idEl = document.createElement("div");
+                  idEl.className = "report-id";
+                  idEl.textContent = "Report ID: " + id;
+
+                  const pageIdEl = document.createElement("div");
+                  pageIdEl.className = "report-pageid";
+                  pageIdEl.textContent = "Page ID: " + pageID;
+
+                  const reasonEl = document.createElement("div");
+                  reasonEl.textContent = "Reason: " + reason;
+
+                  entry.appendChild(idEl);
+                  entry.appendChild(pageIdEl);
+                  entry.appendChild(reasonEl);
+
+                  container.appendChild(entry);
+                });
+              } catch (err) {
+                container.innerHTML = "<p>Error loading reports: " + err.message + "</p>";
+              }
+            }
+
+            window.addEventListener("load", loadReports);
+          <\/script>
+        </body>
+        </html>
+      `);
+      reportTab.document.close();
+    }
+
     function checkPassword() {
       const password = prompt("Enter admin password:");
       if (password === PASSWORD) {
         document.getElementById("adminPanel").style.display = "block";
         loadPages();
+
+        // Add Show Reports button
+        const btn = document.createElement("button");
+        btn.textContent = "Show Reports";
+        btn.style.margin = "20px auto 40px auto";
+        btn.style.padding = "8px 16px";
+        btn.style.fontSize = "16px";
+        btn.style.cursor = "pointer";
+        btn.onclick = showReports;
+
+        document.body.insertBefore(btn, document.getElementById("adminPanel"));
       } else {
         document.body.innerHTML = "<h2 style='color:red;'>Access Denied</h2>";
       }
