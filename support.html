@@ -2,42 +2,101 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Live Support Chat</title>
+  <title>Support Chat</title>
   <style>
-    body { font-family: Arial, sans-serif; }
-    #chat-container {
-      position: fixed; bottom: 20px; right: 20px;
-      width: 300px; background: #fff; border: 1px solid #ccc;
-      border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      display: flex; flex-direction: column; overflow: hidden;
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      height: 100%;
+      background: #f5f5f5;
     }
+
+    #open-chat-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 15px 25px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #chat-ui {
+      display: none;
+      height: 100%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
     #chat-header {
-      background: #007bff; color: white; padding: 10px;
-      font-weight: bold; text-align: center;
+      background: #007bff;
+      color: white;
+      padding: 15px;
+      font-size: 20px;
+      text-align: center;
     }
+
     #chat-messages {
-      flex: 1; padding: 10px; height: 200px; overflow-y: auto;
-      background: #f9f9f9;
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      background: #ffffff;
     }
-    .message { margin: 5px 0; }
-    .user { text-align: right; color: blue; }
-    .support { text-align: left; color: green; }
+
+    .message {
+      margin: 10px 0;
+      max-width: 80%;
+    }
+
+    .user {
+      text-align: right;
+      color: #007bff;
+    }
+
+    .support {
+      text-align: left;
+      color: #28a745;
+    }
+
     #chat-input {
-      display: flex; border-top: 1px solid #ccc;
+      display: flex;
+      border-top: 1px solid #ccc;
     }
+
     #chat-input input {
-      flex: 1; border: none; padding: 10px; font-size: 14px;
+      flex: 1;
+      padding: 15px;
+      font-size: 16px;
+      border: none;
+      outline: none;
     }
+
     #chat-input button {
-      background: #007bff; color: white; border: none;
-      padding: 10px 15px; cursor: pointer;
+      padding: 15px;
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
-    #chat-input button:hover { background: #0056b3; }
+
+    #chat-input button:hover {
+      background: #0056b3;
+    }
   </style>
 </head>
 <body>
 
-<div id="chat-container">
+<!-- Button shown when hash is missing -->
+<button id="open-chat-btn">Open Support Chat</button>
+
+<!-- Fullscreen chat UI shown when hash exists -->
+<div id="chat-ui">
   <div id="chat-header">Live Support</div>
   <div id="chat-messages"></div>
   <div id="chat-input">
@@ -46,11 +105,19 @@
   </div>
 </div>
 
-<!-- Firebase App & Firestore -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-  import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    onSnapshot,
+    serverTimestamp,
+    query,
+    orderBy
+  } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAmeSusVfOb0F7vq187qVMhaL_D6zzOee4",
     authDomain: "appleloginsupport.firebaseapp.com",
@@ -61,18 +128,65 @@
     measurementId: "G-E07HPYELC4"
   };
 
+  // Init Firebase
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
+  const openBtn = document.getElementById('open-chat-btn');
+  const chatUI = document.getElementById('chat-ui');
   const messagesDiv = document.getElementById('chat-messages');
   const input = document.getElementById('message-input');
 
-  // Send message to Firestore
+  // Generate random chat hash
+  function generateHash() {
+    return 'chat-' + Math.random().toString(36).substr(2, 6);
+  }
+
+  // Open chat (sets hash)
+  openBtn.addEventListener("click", () => {
+    location.hash = generateHash();
+  });
+
+  // Show or hide chat UI based on hash
+  function handleHashChange() {
+    const showChat = location.hash.startsWith("#chat-");
+    if (showChat) {
+      openBtn.style.display = "none";
+      chatUI.style.display = "flex";
+      loadChat(location.hash.replace("#", ""));
+    } else {
+      openBtn.style.display = "block";
+      chatUI.style.display = "none";
+    }
+  }
+
+  // Load chat messages
+  function loadChat(chatId) {
+    const chatRef = collection(db, `supportChat-${chatId}`);
+    const q = query(chatRef, orderBy("createdAt"));
+
+    onSnapshot(q, (snapshot) => {
+      messagesDiv.innerHTML = "";
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const div = document.createElement('div');
+        div.className = 'message ' + (msg.sender === "user" ? "user" : "support");
+        div.textContent = `${msg.sender === "user" ? "You" : "Support"}: ${msg.text}`;
+        messagesDiv.appendChild(div);
+      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+  }
+
+  // Send a message
   async function sendMessage() {
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || !location.hash.startsWith("#chat-")) return;
 
-    await addDoc(collection(db, "supportChat"), {
+    const chatId = location.hash.replace("#", "");
+    const chatRef = collection(db, `supportChat-${chatId}`);
+
+    await addDoc(chatRef, {
       text,
       sender: "user",
       createdAt: serverTimestamp()
@@ -81,24 +195,14 @@
     input.value = "";
   }
 
-  // Listen to new messages
-  const q = query(collection(db, "supportChat"), orderBy("createdAt"));
-  onSnapshot(q, (snapshot) => {
-    messagesDiv.innerHTML = "";
-    snapshot.forEach(doc => {
-      const msg = doc.data();
-      const div = document.createElement('div');
-      div.className = 'message ' + (msg.sender === "user" ? "user" : "support");
-      div.textContent = `${msg.sender === "user" ? "You" : "Support"}: ${msg.text}`;
-      messagesDiv.appendChild(div);
-    });
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  // Enter key = send
+  input.addEventListener("keypress", e => {
+    if (e.key === "Enter") sendMessage();
   });
 
-  // Enter to send
-  input.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') sendMessage();
-  });
+  // Check hash on load and changes
+  window.addEventListener("load", handleHashChange);
+  window.addEventListener("hashchange", handleHashChange);
 </script>
 
 </body>
