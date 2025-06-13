@@ -5,7 +5,8 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -20,15 +21,38 @@
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
+    // Elements we'll manipulate
+    let pageList, myReportsBtn, userInfoDiv;
+    let currentUser = null;
+
+    // Create clientId in localStorage to identify reports uniquely per browser
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
       clientId = 'client-' + Math.random().toString(36).substring(2, 15);
       localStorage.setItem('clientId', clientId);
     }
 
+    function createLogoutUI(user) {
+      userInfoDiv.innerHTML = ""; // Clear previous content
+
+      const emailSpan = document.createElement("span");
+      emailSpan.textContent = user.email;
+      emailSpan.style.marginRight = "15px";
+
+      const logoutBtn = document.createElement("button");
+      logoutBtn.textContent = "Logout";
+      logoutBtn.style.cursor = "pointer";
+      logoutBtn.onclick = () => {
+        signOut(auth).catch(err => alert("Error signing out: " + err.message));
+      };
+
+      userInfoDiv.appendChild(emailSpan);
+      userInfoDiv.appendChild(logoutBtn);
+    }
+
     async function loadPageList() {
-      const pageList = document.getElementById("pageList");
       pageList.innerHTML = "Loading pages...";
 
       try {
@@ -76,6 +100,20 @@
       }
     }
 
+    // Show login prompt if user not logged in
+    function showLoginPrompt() {
+      document.body.innerHTML = `
+        <div style="max-width: 400px; margin: 100px auto; text-align: center; font-family: Arial, sans-serif;">
+          <h2>You must log in / sign up before continuing</h2>
+          <button id="loginRedirectBtn" style="padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 6px; background-color: #2a72d6; color: white; border: none;">Log in / Sign up</button>
+        </div>
+      `;
+      document.getElementById("loginRedirectBtn").onclick = () => {
+        window.location.href = "https://githubuser102234.github.io/applelogin/login";
+      };
+    }
+
+    // Open a popup window with a full HTML report form like in your second code
     function openReportWindow(pageID) {
       const reportHTML = `<!DOCTYPE html>
 <html><head><title>Report Page: ${pageID}</title><style>
@@ -140,7 +178,8 @@ document.getElementById('sendBtn').onclick = async () => {
       newWindow.document.close();
     }
 
-    async function showMyReports() {
+    // Open a popup window showing all reports sent by this clientId, with the UI from your second code
+    function showMyReports() {
       const reportsHTML = `<!DOCTYPE html>
 <html><head><title>My Reports</title><style>
 body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: auto; background: #f5f5f5; }
@@ -157,7 +196,7 @@ tr:nth-child(even) { background: #f9f9f9; }
 <button class="close-btn" onclick="window.close()">Close</button>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
 const firebaseConfig = ${JSON.stringify(firebaseConfig)};
 
@@ -169,39 +208,33 @@ let clientId = localStorage.getItem('clientId');
 async function loadReports() {
   const container = document.getElementById('reportsContainer');
   if (!clientId) {
-    container.innerHTML = "<p>Cannot identify your reports.</p>";
+    container.innerHTML = "<p>No reports found for this client.</p>";
     return;
   }
   try {
-    const reportsQuery = query(
-      collection(db, "reports"),
-      where("clientId", "==", clientId),
-      orderBy("reportedAt", "desc")
-    );
-    const snapshot = await getDocs(reportsQuery);
-
+    const q = query(collection(db, "reports"), where("clientId", "==", clientId));
+    const snapshot = await getDocs(q);
     if (snapshot.empty) {
       container.innerHTML = "<p>You have not sent any reports.</p>";
       return;
     }
 
-    let html = "<table><thead><tr><th>Report ID</th><th>Page ID</th><th>Reason</th><th>Status</th></tr></thead><tbody>";
-
-    snapshot.forEach(docSnap => {
-      const report = docSnap.data();
-      const id = docSnap.id;
-      let statusHTML = \`<strong>\${report.status || 'Report received'}</strong>\`;
-      if (report.moderatorNote) {
-        statusHTML += \`<div class="moderator-note">Moderator note: \${report.moderatorNote}</div>\`;
-      }
-      html += \`<tr><td>\${id}</td><td>\${report.pageID}</td><td>\${report.reason}</td><td>\${statusHTML}</td></tr>\`;
+    let html = "<table><tr><th>Page ID</th><th>Reason</th><th>Reported At</th><th>Status</th><th>Moderator Note</th></tr>";
+    snapshot.forEach(doc => {
+      const r = doc.data();
+      const reportedAt = new Date(r.reportedAt).toLocaleString();
+      html += "<tr>";
+      html += "<td>" + r.pageID + "</td>";
+      html += "<td>" + r.reason + "</td>";
+      html += "<td>" + reportedAt + "</td>";
+      html += "<td>" + (r.status || "Pending") + "</td>";
+      html += "<td>" + (r.moderatorNote ? "<div class='moderator-note'>" + r.moderatorNote + "</div>" : "") + "</td>";
+      html += "</tr>";
     });
-
-    html += "</tbody></table>";
+    html += "</table>";
     container.innerHTML = html;
   } catch (err) {
-    container.innerHTML = \`<p>Error loading reports: \${err.message}</p>\`;
-    console.error("Error loading reports:", err);
+    container.innerHTML = "<p>Error loading reports: " + err.message + "</p>";
   }
 }
 
@@ -213,72 +246,40 @@ loadReports();
       newWindow.document.close();
     }
 
-    window.addEventListener('load', () => {
-      loadPageList();
-      document.getElementById('myReportsBtn').onclick = showMyReports;
-    });
+    window.onload = () => {
+      // Setup UI elements container
+      document.body.style.fontFamily = "Arial, sans-serif";
+      document.body.style.padding = "20px";
+
+      userInfoDiv = document.createElement("div");
+      userInfoDiv.id = "userInfoDiv";
+      userInfoDiv.style.marginBottom = "15px";
+
+      myReportsBtn = document.createElement("button");
+      myReportsBtn.textContent = "My Reports";
+      myReportsBtn.style.cursor = "pointer";
+      myReportsBtn.style.marginBottom = "15px";
+      myReportsBtn.onclick = showMyReports;
+
+      pageList = document.createElement("div");
+      pageList.id = "pageList";
+
+      document.body.appendChild(userInfoDiv);
+      document.body.appendChild(myReportsBtn);
+      document.body.appendChild(pageList);
+
+      onAuthStateChanged(auth, user => {
+        if (user) {
+          currentUser = user;
+          createLogoutUI(user);
+          loadPageList();
+        } else {
+          showLoginPrompt();
+        }
+      });
+    };
   </script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px auto;
-      max-width: 650px;
-      padding: 0 20px;
-      background: #fafafa;
-    }
-    #pageList {
-      margin-top: 20px;
-    }
-    .page-entry {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      background: white;
-      padding: 10px 15px;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
-    }
-    .page-entry a {
-      font-weight: 600;
-      color: #2a72d6;
-      text-decoration: none;
-      flex-grow: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .page-entry a:hover {
-      text-decoration: underline;
-    }
-    .page-entry button {
-      margin-left: 15px;
-      padding: 5px 12px;
-      cursor: pointer;
-      font-size: 14px;
-      background-color: #ff5c5c;
-      border: none;
-      border-radius: 4px;
-      color: white;
-      font-weight: 600;
-      flex-shrink: 0;
-    }
-    #myReportsBtn {
-      margin-top: 40px;
-      display: block;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 6px;
-      border: none;
-      background-color: #2a72d6;
-      color: white;
-      font-weight: 600;
-    }
-  </style>
 </head>
 <body>
-  <h1>Public Pages</h1>
-  <div id="pageList">Loading pages...</div>
-  <button id="myReportsBtn" title="View reports you have submitted">My Reports</button>
 </body>
 </html>
