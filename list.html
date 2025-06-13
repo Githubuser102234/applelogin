@@ -1,192 +1,294 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Public Page List</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign Up / Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f2f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      width: 320px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .error, .success {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .error { color: red; }
+    .success { color: green; }
+    .toggle, .forgot {
+      text-align: center;
+      font-size: 14px;
+      margin-top: 10px;
+      cursor: pointer;
+      color: #007bff;
+    }
+    .forgot {
+      margin-top: -8px;
+      margin-bottom: 8px;
+    }
+    .utility-buttons {
+      margin-top: 30px;
+    }
+    .utility-buttons button {
+      background-color: #6c757d;
+    }
+    .utility-buttons button:hover {
+      background-color: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 id="formTitle">Login</h2>
+    <div id="message" class="error"></div>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <div class="forgot" onclick="resetPassword()">Forgot password?</div>
+    <button id="submitButton">Login</button>
+    <div class="toggle" onclick="toggleForm()">Don't have an account? Sign Up</div>
+  </div>
+
+  <div class="utility-buttons">
+    <button onclick="openReportWindow('loginPage')">Report This Page</button>
+    <button onclick="showMyReports()">My Reports</button>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
       authDomain: "applelogin-290fb.firebaseapp.com",
       projectId: "applelogin-290fb",
-      storageBucket: "applelogin-290fb.firebasestorage.app",
-      messagingSenderId: "399647107073",
-      appId: "1:399647107073:web:0e56c01ed4f931a3167800",
-      measurementId: "G-R9H9V909MS"
+      storageBucket: "applelogin-290fb.appspot.com",
+      messagingSenderId: "173559141534",
+      appId: "1:173559141534:web:6c4d5ed6c005be5c82361f",
+      measurementId: "G-7M37X0Q7HJ"
     };
 
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
-    const db = getFirestore(app);
     const auth = getAuth(app);
+    const db = getFirestore(app);
 
-    let clientId = localStorage.getItem('clientId');
-    if (!clientId) {
-      clientId = 'client-' + Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('clientId', clientId);
-    }
+    let isLogin = true;
 
-    async function loadPageList() {
-      const pageList = document.getElementById("pageList");
-      pageList.innerHTML = "Loading pages...";
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const messageDiv = document.getElementById('message');
+    const submitButton = document.getElementById('submitButton');
+    const formTitle = document.getElementById('formTitle');
 
-      try {
-        let q;
-        try {
-          q = query(collection(db, "pages"), orderBy("createdAt", "desc"));
-          await getDocs(q);
-        } catch {
-          q = query(collection(db, "pages"), orderBy("pageID"));
-        }
+    submitButton.addEventListener('click', () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      messageDiv.textContent = "";
 
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-          pageList.innerHTML = "<p>No pages found.</p>";
-          return;
-        }
-
-        pageList.innerHTML = "";
-
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          const id = data.pageID || docSnap.id;
-
-          const entry = document.createElement("div");
-          entry.className = "page-entry";
-
-          const link = document.createElement("a");
-          link.href = `pagecreation#${encodeURIComponent(id)}`;
-          link.textContent = id;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-
-          const reportBtn = document.createElement("button");
-          reportBtn.textContent = "Report";
-          reportBtn.onclick = () => openReportWindow(id);
-
-          entry.appendChild(link);
-          entry.appendChild(reportBtn);
-          pageList.appendChild(entry);
-        });
-      } catch (error) {
-        pageList.innerHTML = `<p>Error loading pages: ${error.message}</p>`;
-        console.error("Error loading pages:", error);
+      if (isLogin) {
+        signInWithEmailAndPassword(auth, email, password)
+          .then(() => {
+            messageDiv.className = 'success';
+            messageDiv.textContent = "Logged in! Redirecting...";
+            setTimeout(() => {
+              window.location.href = "https://githubuser102234.github.io/applelogin/list";
+            }, 1500);
+          })
+          .catch((error) => {
+            messageDiv.className = 'error';
+            messageDiv.textContent = error.message;
+          });
+      } else {
+        createUserWithEmailAndPassword(auth, email, password)
+          .then(() => {
+            messageDiv.className = 'success';
+            messageDiv.textContent = "Account created! Redirecting...";
+            setTimeout(() => {
+              window.location.href = "https://githubuser102234.github.io/applelogin/list";
+            }, 1500);
+          })
+          .catch((error) => {
+            messageDiv.className = 'error';
+            messageDiv.textContent = error.message;
+          });
       }
-    }
-
-    function openReportWindow(pageID) {
-      // (UNCHANGED - full reportWindow code here)
-    }
-
-    async function showMyReports() {
-      // (UNCHANGED - full myReportsWindow code here)
-    }
-
-    function showLoginUI() {
-      document.body.innerHTML = `
-        <div style="text-align:center; padding-top:50px;">
-          <p style="font-size: 18px;">You must log in / sign up to continue.</p>
-          <button id="loginBtn" style="font-size: 16px; padding: 10px 20px;">Log in / Sign up</button>
-        </div>
-      `;
-      document.getElementById("loginBtn").onclick = async () => {
-        const provider = new GoogleAuthProvider();
-        try {
-          await signInWithPopup(auth, provider);
-        } catch (err) {
-          alert("Login failed: " + err.message);
-        }
-      };
-    }
-
-    window.addEventListener('load', () => {
-      onAuthStateChanged(auth, (user) => {
-        if (!user) {
-          showLoginUI();
-        } else {
-          // Show user email and logout button
-          const infoBar = document.createElement("div");
-          infoBar.style.textAlign = "center";
-          infoBar.style.marginBottom = "20px";
-          infoBar.innerHTML = `
-            <p>Logged in as <strong>${user.email}</strong></p>
-            <button id="logoutBtn" style="padding: 6px 14px; font-size: 14px;">Log Out</button>
-          `;
-          document.body.insertBefore(infoBar, document.body.firstChild);
-          document.getElementById("logoutBtn").onclick = () => signOut(auth);
-
-          // Continue loading page list and button
-          loadPageList();
-          document.getElementById('myReportsBtn').onclick = showMyReports;
-        }
-      });
     });
+
+    window.toggleForm = function () {
+      isLogin = !isLogin;
+      formTitle.textContent = isLogin ? "Login" : "Sign Up";
+      submitButton.textContent = isLogin ? "Login" : "Sign Up";
+      document.querySelector(".toggle").textContent = isLogin
+        ? "Don't have an account? Sign Up"
+        : "Already have an account? Login";
+      messageDiv.textContent = "";
+    };
+
+    window.resetPassword = function () {
+      const email = emailInput.value.trim();
+      if (!email) {
+        messageDiv.className = 'error';
+        messageDiv.textContent = "Please enter your email first.";
+        return;
+      }
+      sendPasswordResetEmail(auth, email)
+        .then(() => {
+          messageDiv.className = 'success';
+          messageDiv.textContent = "Password reset email sent!";
+        })
+        .catch((error) => {
+          messageDiv.className = 'error';
+          messageDiv.textContent = error.message;
+        });
+    };
+
+    // === Report Function ===
+    window.openReportWindow = function (pageID) {
+      let clientId = localStorage.getItem('clientId');
+      if (!clientId) {
+        clientId = 'client-' + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('clientId', clientId);
+      }
+
+      const reportHTML = `<!DOCTYPE html>
+<html><head><title>Report Page: ${pageID}</title><style>
+body { font-family: Arial, sans-serif; padding: 30px; max-width: 500px; margin: auto; }
+textarea { width: 100%; height: 120px; margin-bottom: 20px; font-size: 16px; }
+button { padding: 10px 20px; margin-right: 10px; font-size: 16px; cursor: pointer; }
+p#status { color: green; margin-top: 10px; }
+</style></head><body>
+<h2>Report Page: ${pageID}</h2>
+<label for="reason">Report reason:</label><br>
+<textarea id="reason" placeholder="Enter reason here..."></textarea><br>
+<button id="sendBtn">Send</button>
+<button id="cancelBtn">Cancel</button>
+<p id="status"></p>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+const app = initializeApp(${JSON.stringify(firebaseConfig)});
+const db = getFirestore(app);
+const pageID = "${pageID}";
+let clientId = localStorage.getItem('clientId');
+if (!clientId) {
+  clientId = 'client-' + Math.random().toString(36).substring(2, 15);
+  localStorage.setItem('clientId', clientId);
+}
+document.getElementById('cancelBtn').onclick = () => window.close();
+document.getElementById('sendBtn').onclick = async () => {
+  const reason = document.getElementById('reason').value.trim();
+  const statusEl = document.getElementById('status');
+  if (!reason) return alert('Please enter a reason.');
+  try {
+    await addDoc(collection(db, "reports"), {
+      pageID,
+      reason,
+      reportedAt: new Date().toISOString(),
+      clientId,
+      status: "Report received",
+      moderatorNote: ""
+    });
+    statusEl.textContent = "Report sent successfully!";
+    setTimeout(() => window.close(), 1500);
+  } catch (err) {
+    alert('Error sending report: ' + err.message);
+  }
+};
+<\/script></body></html>`;
+
+      const newWindow = window.open();
+      newWindow.document.write(reportHTML);
+      newWindow.document.close();
+    };
+
+    // === My Reports Viewer ===
+    window.showMyReports = function () {
+      let clientId = localStorage.getItem('clientId');
+      const reportsHTML = `<!DOCTYPE html>
+<html><head><title>My Reports</title><style>
+body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: auto; background: #f5f5f5; }
+h1 { text-align: center; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top; }
+th { background: #007bff; color: white; }
+tr:nth-child(even) { background: #f9f9f9; }
+.moderator-note { font-style: italic; color: #555; margin-top: 5px; }
+.close-btn { display: block; margin: 20px auto 0 auto; padding: 10px 25px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+</style></head><body>
+<h1>My Sent Reports</h1>
+<div id="reportsContainer"><p>Loading reports...</p></div>
+<button class="close-btn" onclick="window.close()">Close</button>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+const app = initializeApp(${JSON.stringify(firebaseConfig)});
+const db = getFirestore(app);
+const clientId = localStorage.getItem('clientId');
+async function loadReports() {
+  const container = document.getElementById('reportsContainer');
+  if (!clientId) return container.innerHTML = "<p>Cannot identify your reports.</p>";
+  try {
+    const q = query(collection(db, "reports"), where("clientId", "==", clientId), orderBy("reportedAt", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return container.innerHTML = "<p>You have not sent any reports.</p>";
+    let html = "<table><thead><tr><th>Report ID</th><th>Page ID</th><th>Reason</th><th>Status</th></tr></thead><tbody>";
+    snapshot.forEach(doc => {
+      const r = doc.data();
+      let status = \`<strong>\${r.status || 'Report received'}</strong>\`;
+      if (r.moderatorNote) status += \`<div class="moderator-note">Moderator note: \${r.moderatorNote}</div>\`;
+      html += \`<tr><td>\${doc.id}</td><td>\${r.pageID}</td><td>\${r.reason}</td><td>\${status}</td></tr>\`;
+    });
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = \`<p>Error loading reports: \${e.message}</p>\`;
+  }
+}
+loadReports();
+<\/script></body></html>`;
+
+      const newWindow = window.open();
+      newWindow.document.write(reportsHTML);
+      newWindow.document.close();
+    };
   </script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px auto;
-      max-width: 650px;
-      padding: 0 20px;
-      background: #fafafa;
-    }
-    #pageList {
-      margin-top: 20px;
-    }
-    .page-entry {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      background: white;
-      padding: 10px 15px;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
-    }
-    .page-entry a {
-      font-weight: 600;
-      color: #2a72d6;
-      text-decoration: none;
-      flex-grow: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .page-entry a:hover {
-      text-decoration: underline;
-    }
-    .page-entry button {
-      margin-left: 15px;
-      padding: 5px 12px;
-      cursor: pointer;
-      font-size: 14px;
-      background-color: #ff5c5c;
-      border: none;
-      border-radius: 4px;
-      color: white;
-      font-weight: 600;
-      flex-shrink: 0;
-    }
-    #myReportsBtn {
-      margin-top: 40px;
-      display: block;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 6px;
-      border: none;
-      background-color: #2a72d6;
-      color: white;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
-  <h1>Public Pages</h1>
-  <div id="pageList">Loading pages...</div>
-  <button id="myReportsBtn" title="View reports you have submitted">My Reports</button>
 </body>
 </html>
