@@ -23,14 +23,28 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    let clientId = localStorage.getItem('clientId');
-    if (!clientId) {
-      clientId = 'client-' + Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('clientId', clientId);
+    // Elements that we will manipulate
+    let pageList, myReportsBtn, userInfoDiv;
+
+    function createLogoutUI(user) {
+      userInfoDiv.innerHTML = ""; // Clear previous content
+
+      const emailSpan = document.createElement("span");
+      emailSpan.textContent = user.email;
+      emailSpan.style.marginRight = "15px";
+
+      const logoutBtn = document.createElement("button");
+      logoutBtn.textContent = "Logout";
+      logoutBtn.style.cursor = "pointer";
+      logoutBtn.onclick = () => {
+        signOut(auth).catch(err => alert("Error signing out: " + err.message));
+      };
+
+      userInfoDiv.appendChild(emailSpan);
+      userInfoDiv.appendChild(logoutBtn);
     }
 
     async function loadPageList() {
-      const pageList = document.getElementById("pageList");
       pageList.innerHTML = "Loading pages...";
 
       try {
@@ -78,49 +92,42 @@
       }
     }
 
-    function openReportWindow(pageID) {
-      // report window code unchanged...
-      // (omit here for brevity, you can reuse your version)
-    }
-
-    async function showMyReports() {
-      // reports window code unchanged...
-      // (omit here for brevity, you can reuse your version)
-    }
-
-    function setupLogoutUI(user) {
-      const authInfo = document.getElementById("authInfo");
-      authInfo.innerHTML = `
-        <span>Signed in as <strong>${user.email}</strong></span>
-        <button id="logoutBtn">Logout</button>
+    // Login redirect UI
+    function showLoginPrompt() {
+      document.body.innerHTML = `
+        <div style="max-width: 400px; margin: 100px auto; text-align: center; font-family: Arial, sans-serif;">
+          <h2>You must log in / sign up before continuing</h2>
+          <button id="loginRedirectBtn" style="padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 6px; background-color: #2a72d6; color: white; border: none;">Log in / Sign up</button>
+        </div>
       `;
-      document.getElementById("logoutBtn").onclick = () => {
-        signOut(auth).then(() => {
-          location.reload();
-        });
+      document.getElementById("loginRedirectBtn").onclick = () => {
+        window.location.href = "https://githubuser102234.github.io/applelogin/login";
       };
     }
 
-    function showLoginPrompt() {
-      document.body.innerHTML = `
-        <div id="loginNotice">
-          <h2>You must log in / sign up before continuing</h2>
-          <button onclick="location.href='https://githubuser102234.github.io/applelogin/login'">Log in / Sign up</button>
-        </div>
-      `;
-    }
-
     window.addEventListener('load', () => {
-      onAuthStateChanged(auth, user => {
-        if (!user) {
+      // Prepare placeholders for elements
+      pageList = document.getElementById("pageList");
+      myReportsBtn = document.getElementById("myReportsBtn");
+      userInfoDiv = document.getElementById("userInfo");
+
+      // Listen to auth state changes
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          // User is logged in
+          createLogoutUI(user);
+          loadPageList();
+          myReportsBtn.onclick = showMyReports;
+        } else {
+          // Not logged in - show login prompt page only
           showLoginPrompt();
-          return;
         }
-        setupLogoutUI(user);
-        loadPageList();
-        document.getElementById('myReportsBtn').onclick = showMyReports;
       });
     });
+
+    // --- Your existing openReportWindow() and showMyReports() functions here ---
+    // (Use your existing implementations, or I can help integrate them too.)
+
   </script>
   <style>
     body {
@@ -129,27 +136,6 @@
       max-width: 650px;
       padding: 0 20px;
       background: #fafafa;
-    }
-    #authInfo {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      background: #e0e0e0;
-      padding: 10px 15px;
-      border-radius: 6px;
-    }
-    #authInfo span {
-      font-size: 15px;
-    }
-    #authInfo button {
-      padding: 5px 12px;
-      font-size: 14px;
-      cursor: pointer;
-      background-color: #333;
-      color: white;
-      border: none;
-      border-radius: 4px;
     }
     #pageList {
       margin-top: 20px;
@@ -199,27 +185,27 @@
       color: white;
       font-weight: 600;
     }
-    #loginNotice {
-      text-align: center;
-      padding: 50px;
-    }
-    #loginNotice h2 {
-      font-size: 22px;
+    #userInfo {
       margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-weight: 600;
+      font-size: 14px;
     }
-    #loginNotice button {
-      font-size: 16px;
-      padding: 10px 25px;
-      background-color: #2a72d6;
-      color: white;
+    #userInfo button {
+      background-color: #ff5c5c;
       border: none;
-      border-radius: 6px;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
       cursor: pointer;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
-  <div id="authInfo"></div>
+  <div id="userInfo"></div>
   <h1>Public Pages</h1>
   <div id="pageList">Loading pages...</div>
   <button id="myReportsBtn" title="View reports you have submitted">My Reports</button>
