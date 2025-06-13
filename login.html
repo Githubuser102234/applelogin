@@ -99,17 +99,15 @@
     submitButton.addEventListener('click', () => {
       const email = emailInput.value.trim();
       const password = passwordInput.value;
-
       messageDiv.textContent = "";
 
       if (isLogin) {
-        // Login
         signInWithEmailAndPassword(auth, email, password)
           .then(() => {
             messageDiv.className = 'success';
             messageDiv.textContent = "Logged in! Redirecting...";
             setTimeout(() => {
-              window.location.href = "chat.html"; // Change to your destination
+              window.location.href = "https://githubuser102234.github.io/applelogin/list";
             }, 1500);
           })
           .catch((error) => {
@@ -117,13 +115,12 @@
             messageDiv.textContent = error.message;
           });
       } else {
-        // Signup
         createUserWithEmailAndPassword(auth, email, password)
           .then(() => {
             messageDiv.className = 'success';
-            messageDiv.textContent = "Account created! Logging in...";
+            messageDiv.textContent = "Account created! Redirecting...";
             setTimeout(() => {
-              window.location.href = "chat.html"; // Change to your destination
+              window.location.href = "https://githubuser102234.github.io/applelogin/list";
             }, 1500);
           })
           .catch((error) => {
