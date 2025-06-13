@@ -5,8 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, query, orderBy, addDoc, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, getDocs, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAQWXCbayweKMxjXguR2YZ4lqjX6gHG8gA",
@@ -21,31 +20,15 @@
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
-    const auth = getAuth(app);
 
-    // Elements we'll manipulate
-    let pageList, myReportsBtn, userInfoDiv;
-    let currentUser = null;
-
-    function createLogoutUI(user) {
-      userInfoDiv.innerHTML = ""; // Clear previous content
-
-      const emailSpan = document.createElement("span");
-      emailSpan.textContent = user.email;
-      emailSpan.style.marginRight = "15px";
-
-      const logoutBtn = document.createElement("button");
-      logoutBtn.textContent = "Logout";
-      logoutBtn.style.cursor = "pointer";
-      logoutBtn.onclick = () => {
-        signOut(auth).catch(err => alert("Error signing out: " + err.message));
-      };
-
-      userInfoDiv.appendChild(emailSpan);
-      userInfoDiv.appendChild(logoutBtn);
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+      clientId = 'client-' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('clientId', clientId);
     }
 
     async function loadPageList() {
+      const pageList = document.getElementById("pageList");
       pageList.innerHTML = "Loading pages...";
 
       try {
@@ -93,109 +76,146 @@
       }
     }
 
-    // Show login prompt if user not logged in
-    function showLoginPrompt() {
-      document.body.innerHTML = `
-        <div style="max-width: 400px; margin: 100px auto; text-align: center; font-family: Arial, sans-serif;">
-          <h2>You must log in / sign up before continuing</h2>
-          <button id="loginRedirectBtn" style="padding: 12px 20px; font-size: 16px; cursor: pointer; border-radius: 6px; background-color: #2a72d6; color: white; border: none;">Log in / Sign up</button>
-        </div>
-      `;
-      document.getElementById("loginRedirectBtn").onclick = () => {
-        window.location.href = "https://githubuser102234.github.io/applelogin/login";
-      };
+    function openReportWindow(pageID) {
+      const reportHTML = `<!DOCTYPE html>
+<html><head><title>Report Page: ${pageID}</title><style>
+body { font-family: Arial, sans-serif; padding: 30px; max-width: 500px; margin: auto; }
+textarea { width: 100%; height: 120px; margin-bottom: 20px; font-size: 16px; }
+button { padding: 10px 20px; margin-right: 10px; font-size: 16px; cursor: pointer; }
+p#status { color: green; margin-top: 10px; }
+</style></head><body>
+<h2>Report Page: ${pageID}</h2>
+<label for="reason">Report reason:</label><br>
+<textarea id="reason" placeholder="Enter reason here..."></textarea><br>
+<button id="sendBtn">Send</button>
+<button id="cancelBtn">Cancel</button>
+<p id="status"></p>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+const firebaseConfig = ${JSON.stringify(firebaseConfig)};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const pageID = "${pageID}";
+
+let clientId = localStorage.getItem('clientId');
+if (!clientId) {
+  clientId = 'client-' + Math.random().toString(36).substring(2, 15);
+  localStorage.setItem('clientId', clientId);
+}
+
+document.getElementById('cancelBtn').onclick = () => {
+  window.close();
+};
+
+document.getElementById('sendBtn').onclick = async () => {
+  const reason = document.getElementById('reason').value.trim();
+  const statusEl = document.getElementById('status');
+  if (!reason) {
+    alert('Please enter a reason to report.');
+    return;
+  }
+  try {
+    await addDoc(collection(db, "reports"), {
+      pageID,
+      reason,
+      reportedAt: new Date().toISOString(),
+      clientId,
+      status: "Report received",
+      moderatorNote: ""
+    });
+    statusEl.textContent = "Report sent successfully!";
+    setTimeout(() => window.close(), 1500);
+  } catch (err) {
+    alert('Error sending report: ' + err.message);
+  }
+};
+<\/script></body></html>`;
+
+      const newWindow = window.open();
+      newWindow.document.write(reportHTML);
+      newWindow.document.close();
     }
 
-    // Open a prompt to report a page, then save report to Firestore
-    async function openReportWindow(pageID) {
-      if (!currentUser) {
-        alert("You must be logged in to submit a report.");
-        return;
-      }
-
-      const reason = prompt(`Report page "${pageID}":\nPlease describe the issue or reason for reporting.`);
-
-      if (!reason) return; // User cancelled or empty input
-
-      try {
-        await addDoc(collection(db, "reports"), {
-          pageID,
-          reporterUID: currentUser.uid,
-          reporterEmail: currentUser.email,
-          reason,
-          createdAt: new Date()
-        });
-        alert("Report submitted successfully. Thank you!");
-      } catch (error) {
-        alert("Failed to submit report: " + error.message);
-        console.error("Error submitting report:", error);
-      }
-    }
-
-    // Show all reports submitted by current user
     async function showMyReports() {
-      if (!currentUser) {
-        alert("You must be logged in to view your reports.");
-        return;
+      const reportsHTML = `<!DOCTYPE html>
+<html><head><title>My Reports</title><style>
+body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: auto; background: #f5f5f5; }
+h1 { text-align: center; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top; }
+th { background: #007bff; color: white; }
+tr:nth-child(even) { background: #f9f9f9; }
+.moderator-note { font-style: italic; color: #555; margin-top: 5px; }
+.close-btn { display: block; margin: 20px auto 0 auto; padding: 10px 25px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+</style></head><body>
+<h1>My Sent Reports</h1>
+<div id="reportsContainer"><p>Loading reports...</p></div>
+<button class="close-btn" onclick="window.close()">Close</button>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+const firebaseConfig = ${JSON.stringify(firebaseConfig)};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let clientId = localStorage.getItem('clientId');
+
+async function loadReports() {
+  const container = document.getElementById('reportsContainer');
+  if (!clientId) {
+    container.innerHTML = "<p>Cannot identify your reports.</p>";
+    return;
+  }
+  try {
+    const reportsQuery = query(
+      collection(db, "reports"),
+      where("clientId", "==", clientId),
+      orderBy("reportedAt", "desc")
+    );
+    const snapshot = await getDocs(reportsQuery);
+
+    if (snapshot.empty) {
+      container.innerHTML = "<p>You have not sent any reports.</p>";
+      return;
+    }
+
+    let html = "<table><thead><tr><th>Report ID</th><th>Page ID</th><th>Reason</th><th>Status</th></tr></thead><tbody>";
+
+    snapshot.forEach(docSnap => {
+      const report = docSnap.data();
+      const id = docSnap.id;
+      let statusHTML = \`<strong>\${report.status || 'Report received'}</strong>\`;
+      if (report.moderatorNote) {
+        statusHTML += \`<div class="moderator-note">Moderator note: \${report.moderatorNote}</div>\`;
       }
+      html += \`<tr><td>\${id}</td><td>\${report.pageID}</td><td>\${report.reason}</td><td>\${statusHTML}</td></tr>\`;
+    });
 
-      pageList.innerHTML = "<h2>My Reports</h2>";
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = \`<p>Error loading reports: \${err.message}</p>\`;
+    console.error("Error loading reports:", err);
+  }
+}
 
-      try {
-        const reportsQuery = query(collection(db, "reports"), where("reporterUID", "==", currentUser.uid), orderBy("createdAt", "desc"));
-        const reportsSnap = await getDocs(reportsQuery);
+loadReports();
+<\/script></body></html>`;
 
-        if (reportsSnap.empty) {
-          pageList.innerHTML += "<p>You have not submitted any reports yet.</p>";
-          return;
-        }
-
-        const list = document.createElement("ul");
-        list.style.paddingLeft = "20px";
-
-        reportsSnap.forEach(docSnap => {
-          const data = docSnap.data();
-          const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
-          const dateStr = date.toLocaleString();
-
-          const li = document.createElement("li");
-          li.style.marginBottom = "10px";
-
-          li.innerHTML = `<strong>Page:</strong> ${data.pageID} <br />
-                          <strong>Reason:</strong> ${data.reason} <br />
-                          <small><em>Reported on: ${dateStr}</em></small>`;
-          list.appendChild(li);
-        });
-
-        pageList.appendChild(list);
-
-      } catch (error) {
-        pageList.innerHTML += `<p>Error loading your reports: ${error.message}</p>`;
-        console.error("Error loading reports:", error);
-      }
+      const newWindow = window.open();
+      newWindow.document.write(reportsHTML);
+      newWindow.document.close();
     }
 
     window.addEventListener('load', () => {
-      // Prepare placeholders for elements
-      pageList = document.getElementById("pageList");
-      myReportsBtn = document.getElementById("myReportsBtn");
-      userInfoDiv = document.getElementById("userInfo");
-
-      // Listen to auth state changes
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          currentUser = user;
-          // User is logged in
-          createLogoutUI(user);
-          loadPageList();
-          myReportsBtn.onclick = showMyReports;
-          myReportsBtn.disabled = false;
-        } else {
-          currentUser = null;
-          // Not logged in - show login prompt page only
-          showLoginPrompt();
-        }
-      });
+      loadPageList();
+      document.getElementById('myReportsBtn').onclick = showMyReports;
     });
   </script>
   <style>
@@ -254,33 +274,11 @@
       color: white;
       font-weight: 600;
     }
-    #myReportsBtn:disabled {
-      background-color: gray;
-      cursor: not-allowed;
-    }
-    #userInfo {
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    #userInfo button {
-      background-color: #ff5c5c;
-      border: none;
-      color: white;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 600;
-    }
   </style>
 </head>
 <body>
-  <div id="userInfo"></div>
   <h1>Public Pages</h1>
   <div id="pageList">Loading pages...</div>
-  <button id="myReportsBtn" title="View reports you have submitted" disabled>My Reports</button>
+  <button id="myReportsBtn" title="View reports you have submitted">My Reports</button>
 </body>
 </html>
