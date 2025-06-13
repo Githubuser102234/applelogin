@@ -50,12 +50,16 @@
     }
     .error { color: red; }
     .success { color: green; }
-    .toggle {
+    .toggle, .forgot {
       text-align: center;
       font-size: 14px;
       margin-top: 10px;
       cursor: pointer;
       color: #007bff;
+    }
+    .forgot {
+      margin-top: -8px;
+      margin-bottom: 8px;
     }
   </style>
 </head>
@@ -65,6 +69,7 @@
     <div id="message" class="error"></div>
     <input type="email" id="email" placeholder="Email" required />
     <input type="password" id="password" placeholder="Password" required />
+    <div class="forgot" onclick="resetPassword()">Forgot password?</div>
     <button id="submitButton">Login</button>
     <div class="toggle" onclick="toggleForm()">Don't have an account? Sign Up</div>
   </div>
@@ -72,7 +77,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDuj_KFUkpxCX-AKVWiVMtz3pt3gtRaHP4",
@@ -138,6 +143,24 @@
         ? "Don't have an account? Sign Up"
         : "Already have an account? Login";
       messageDiv.textContent = "";
+    };
+
+    window.resetPassword = function () {
+      const email = emailInput.value.trim();
+      if (!email) {
+        messageDiv.className = 'error';
+        messageDiv.textContent = "Please enter your email first.";
+        return;
+      }
+      sendPasswordResetEmail(auth, email)
+        .then(() => {
+          messageDiv.className = 'success';
+          messageDiv.textContent = "Password reset email sent!";
+        })
+        .catch((error) => {
+          messageDiv.className = 'error';
+          messageDiv.textContent = error.message;
+        });
     };
   </script>
 </body>
