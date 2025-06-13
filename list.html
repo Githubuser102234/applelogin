@@ -5,7 +5,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
-    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, orderBy, addDoc, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -23,8 +23,9 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // Elements that we will manipulate
+    // Elements we'll manipulate
     let pageList, myReportsBtn, userInfoDiv;
+    let currentUser = null;
 
     function createLogoutUI(user) {
       userInfoDiv.innerHTML = ""; // Clear previous content
@@ -92,7 +93,7 @@
       }
     }
 
-    // Login redirect UI
+    // Show login prompt if user not logged in
     function showLoginPrompt() {
       document.body.innerHTML = `
         <div style="max-width: 400px; margin: 100px auto; text-align: center; font-family: Arial, sans-serif;">
@@ -105,6 +106,75 @@
       };
     }
 
+    // Open a prompt to report a page, then save report to Firestore
+    async function openReportWindow(pageID) {
+      if (!currentUser) {
+        alert("You must be logged in to submit a report.");
+        return;
+      }
+
+      const reason = prompt(`Report page "${pageID}":\nPlease describe the issue or reason for reporting.`);
+
+      if (!reason) return; // User cancelled or empty input
+
+      try {
+        await addDoc(collection(db, "reports"), {
+          pageID,
+          reporterUID: currentUser.uid,
+          reporterEmail: currentUser.email,
+          reason,
+          createdAt: new Date()
+        });
+        alert("Report submitted successfully. Thank you!");
+      } catch (error) {
+        alert("Failed to submit report: " + error.message);
+        console.error("Error submitting report:", error);
+      }
+    }
+
+    // Show all reports submitted by current user
+    async function showMyReports() {
+      if (!currentUser) {
+        alert("You must be logged in to view your reports.");
+        return;
+      }
+
+      pageList.innerHTML = "<h2>My Reports</h2>";
+
+      try {
+        const reportsQuery = query(collection(db, "reports"), where("reporterUID", "==", currentUser.uid), orderBy("createdAt", "desc"));
+        const reportsSnap = await getDocs(reportsQuery);
+
+        if (reportsSnap.empty) {
+          pageList.innerHTML += "<p>You have not submitted any reports yet.</p>";
+          return;
+        }
+
+        const list = document.createElement("ul");
+        list.style.paddingLeft = "20px";
+
+        reportsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+          const dateStr = date.toLocaleString();
+
+          const li = document.createElement("li");
+          li.style.marginBottom = "10px";
+
+          li.innerHTML = `<strong>Page:</strong> ${data.pageID} <br />
+                          <strong>Reason:</strong> ${data.reason} <br />
+                          <small><em>Reported on: ${dateStr}</em></small>`;
+          list.appendChild(li);
+        });
+
+        pageList.appendChild(list);
+
+      } catch (error) {
+        pageList.innerHTML += `<p>Error loading your reports: ${error.message}</p>`;
+        console.error("Error loading reports:", error);
+      }
+    }
+
     window.addEventListener('load', () => {
       // Prepare placeholders for elements
       pageList = document.getElementById("pageList");
@@ -114,20 +184,19 @@
       // Listen to auth state changes
       onAuthStateChanged(auth, (user) => {
         if (user) {
+          currentUser = user;
           // User is logged in
           createLogoutUI(user);
           loadPageList();
           myReportsBtn.onclick = showMyReports;
+          myReportsBtn.disabled = false;
         } else {
+          currentUser = null;
           // Not logged in - show login prompt page only
           showLoginPrompt();
         }
       });
     });
-
-    // --- Your existing openReportWindow() and showMyReports() functions here ---
-    // (Use your existing implementations, or I can help integrate them too.)
-
   </script>
   <style>
     body {
@@ -185,6 +254,10 @@
       color: white;
       font-weight: 600;
     }
+    #myReportsBtn:disabled {
+      background-color: gray;
+      cursor: not-allowed;
+    }
     #userInfo {
       margin-bottom: 20px;
       display: flex;
@@ -208,6 +281,6 @@
   <div id="userInfo"></div>
   <h1>Public Pages</h1>
   <div id="pageList">Loading pages...</div>
-  <button id="myReportsBtn" title="View reports you have submitted">My Reports</button>
+  <button id="myReportsBtn" title="View reports you have submitted" disabled>My Reports</button>
 </body>
 </html>
